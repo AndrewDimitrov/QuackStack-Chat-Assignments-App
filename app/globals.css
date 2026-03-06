@@ -1,26 +1,56 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
+@layer base {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+    /* Brand colors */
+    --color-accent: #64b0e8;
+    --color-accent-light: #a8d8f0;
+    --color-accent-muted: rgba(100, 176, 232, 0.12);
+    --color-accent-border: rgba(100, 176, 232, 0.2);
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+    /* Text */
+    --color-text-primary: #1a2a3a;
+    --color-text-secondary: #5a7585;
+    --color-text-muted: #9bb0be;
+
+    /* Backgrounds */
+    --color-bg: #f8fbff;
+    --color-bg-card: rgba(255, 255, 255, 0.85);
+    --color-bg-card-hover: rgba(255, 255, 255, 0.95);
+    --color-bg-subtle: rgba(100, 176, 232, 0.06);
+
+    /* Borders */
+    --color-border: rgba(100, 176, 232, 0.15);
+    --color-border-strong: rgba(100, 176, 232, 0.25);
+
+    /* Status */
+    --color-success: #2d7a4f;
+    --color-success-bg: rgba(45, 122, 79, 0.08);
+    --color-error: #e05c5c;
+    --color-error-bg: rgba(224, 92, 92, 0.08);
+    --color-warning: #b07d2a;
+    --color-warning-bg: rgba(176, 125, 42, 0.08);
+
+    /* Shadows */
+    --shadow-sm: 0 1px 4px rgba(26, 42, 58, 0.06);
+    --shadow-md: 0 4px 16px rgba(26, 42, 58, 0.08);
+    --shadow-lg: 0 8px 32px rgba(26, 42, 58, 0.1);
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html {
+    font-family: "DM Sans", sans-serif;
+    background: var(--color-bg);
+    color: var(--color-text-primary);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    background: var(--color-bg);
+  }
 }
