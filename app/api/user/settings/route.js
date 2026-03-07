@@ -9,7 +9,7 @@ export async function PATCH(request) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { displayName, bio, timezone } = await request.json();
+  const { displayName, bio } = await request.json();
 
   await connectDB();
 
@@ -18,7 +18,6 @@ export async function PATCH(request) {
     {
       name: displayName,
       bio,
-      timezone,
     },
     { new: true },
   );

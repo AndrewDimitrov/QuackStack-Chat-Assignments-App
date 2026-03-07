@@ -199,7 +199,7 @@ export default function Header() {
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display&display=swap');
 
         .header {
-          height: 56px;
+          height: 64px;
           padding: 0 20px;
           display: flex;
           align-items: center;
@@ -232,8 +232,8 @@ export default function Header() {
         }
 
         .notif-btn {
-          width: 36px;
-          height: 36px;
+          width: 40px;
+          height: 40px;
           border-radius: 10px;
           border: 1px solid var(--color-border);
           background: white;
@@ -352,15 +352,15 @@ export default function Header() {
         .notif-content { flex: 1; min-width: 0; }
 
         .notif-title {
-          font-size: 13px;
+          font-size: 14px;
           font-weight: 600;
           color: var(--color-text-primary);
           font-family: 'DM Sans', sans-serif;
-          margin-bottom: 2px;
+          margin-bottom: 0;
         }
 
         .notif-body {
-          font-size: 12px;
+          font-size: 13px;
           color: var(--color-text-secondary);
           font-family: 'DM Sans', sans-serif;
           line-height: 1.4;
@@ -399,8 +399,8 @@ export default function Header() {
         }
 
         .avatar-btn {
-          width: 36px;
-          height: 36px;
+          width: 38px;
+          height: 38px;
           border-radius: 50%;
           border: 2px solid var(--color-border);
           overflow: hidden;
@@ -438,14 +438,14 @@ export default function Header() {
         }
 
         .user-dropdown-name {
-          font-size: 13px;
+          font-size: 15px;
           font-weight: 600;
           color: var(--color-text-primary);
           font-family: 'DM Sans', sans-serif;
         }
 
         .user-dropdown-email {
-          font-size: 11px;
+          font-size: 12px;
           color: var(--color-text-muted);
           font-family: 'DM Sans', sans-serif;
           margin-top: 1px;
@@ -459,7 +459,7 @@ export default function Header() {
           align-items: center;
           gap: 9px;
           padding: 10px 14px;
-          font-size: 13px;
+          font-size: 14px;
           color: var(--color-text-secondary);
           font-family: 'DM Sans', sans-serif;
           cursor: pointer;
@@ -478,11 +478,48 @@ export default function Header() {
           background: var(--color-border);
           margin: 4px 0;
         }
+
+        .logo {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .logo-icon {
+          width: 36px;
+          height: 36px;
+          background: #1a2a3a;
+          border-radius: 10px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .logo-text {
+          font-family: 'DM Serif Display', serif;
+          font-size: 22px;
+          color: #1a2a3a;
+          letter-spacing: -0.3px;
+        }
+
       `}</style>
 
       <header className="header">
         <Link href="/dashboard" className="header-logo">
-          DevTask
+          <div className="logo">
+            <div className="logo-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <path
+                  d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"
+                  stroke="white"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </div>
+            <span className="logo-text">DevSpace</span>
+          </div>
         </Link>
 
         <div className="header-right">
@@ -496,8 +533,8 @@ export default function Header() {
               }}
             >
               <svg
-                width="16"
-                height="16"
+                width="20"
+                height="20"
                 viewBox="0 0 24 24"
                 fill="none"
                 xmlns="http://www.w3.org/2000/svg"

@@ -142,7 +142,7 @@ export default function DMPage() {
   }
 
   function formatTime(date) {
-    return new Date(date).toLocaleTimeString("en-GB", {
+    return new Date(date).toLocaleTimeString([], {
       hour: "2-digit",
       minute: "2-digit",
     });
@@ -320,7 +320,7 @@ export default function DMPage() {
 
         .chat-input-inner {
           display: flex;
-          align-items: flex-end;
+          align-items: center;
           gap: 10px;
           padding: 10px 14px;
           background: var(--color-bg);
@@ -338,7 +338,7 @@ export default function DMPage() {
           flex: 1;
           border: none;
           background: transparent;
-          font-size: 14px;
+          font-size: 15px;
           font-family: 'DM Sans', sans-serif;
           color: var(--color-text-primary);
           outline: none;

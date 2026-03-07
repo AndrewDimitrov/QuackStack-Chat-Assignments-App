@@ -181,7 +181,7 @@ export default function GroupPage() {
   }
 
   function formatTime(date) {
-    return new Date(date).toLocaleTimeString("en-GB", {
+    return new Date(date).toLocaleTimeString([], {
       hour: "2-digit",
       minute: "2-digit",
     });

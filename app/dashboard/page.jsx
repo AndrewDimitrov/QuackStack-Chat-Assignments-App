@@ -46,7 +46,7 @@ export default function DashboardPage() {
 
       <div className="welcome">
         <div className="welcome-icon">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
             <path
               d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"
               stroke="var(--color-accent)"

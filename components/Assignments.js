@@ -207,7 +207,7 @@ export default function Assignments({
         }
 
         .asgn-list-title {
-          font-size: 13px;
+          font-size: 14px;
           font-weight: 600;
           color: var(--color-text-primary);
         }

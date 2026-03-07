@@ -182,7 +182,7 @@ export default function Sidebar({ onClose }) {
           display: flex;
           align-items: center;
           gap: 6px;
-          font-size: 11px;
+          font-size: 12px;
           font-weight: 600;
           color: var(--color-text-muted);
           letter-spacing: 0.8px;
@@ -201,7 +201,7 @@ export default function Sidebar({ onClose }) {
           align-items: center;
           justify-content: center;
           transition: all 0.2s;
-          font-size: 15px;
+          font-size: 18px;
           line-height: 1;
           font-family: 'DM Sans', sans-serif;
         }
@@ -422,8 +422,8 @@ export default function Sidebar({ onClose }) {
           <div className="sb-section-head">
             <span className="sb-section-label">
               <svg
-                width="12"
-                height="12"
+                width="13"
+                height="13"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -506,8 +506,8 @@ export default function Sidebar({ onClose }) {
           <div className="sb-section-head" style={{ marginTop: "8px" }}>
             <span className="sb-section-label">
               <svg
-                width="12"
-                height="12"
+                width="13"
+                height="13"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"

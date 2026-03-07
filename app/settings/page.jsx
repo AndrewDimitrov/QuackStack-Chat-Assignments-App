@@ -3,25 +3,12 @@ import { useState } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 
-const TIMEZONES = [
-  { value: "Europe/Sofia", label: "Sofia (UTC+2)" },
-  { value: "Europe/London", label: "London (UTC+0)" },
-  { value: "Europe/Paris", label: "Paris (UTC+1)" },
-  { value: "Europe/Berlin", label: "Berlin (UTC+1)" },
-  { value: "America/New_York", label: "New York (UTC-5)" },
-  { value: "America/Los_Angeles", label: "Los Angeles (UTC-8)" },
-  { value: "Asia/Tokyo", label: "Tokyo (UTC+9)" },
-  { value: "Asia/Dubai", label: "Dubai (UTC+4)" },
-  { value: "UTC", label: "UTC (UTC+0)" },
-];
-
 export default function SettingsPage() {
   const { data: session } = useSession();
   const router = useRouter();
 
   const [displayName, setDisplayName] = useState(session?.user?.name || "");
   const [bio, setBio] = useState("");
-  const [timezone, setTimezone] = useState("Europe/Sofia");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
@@ -34,7 +21,7 @@ export default function SettingsPage() {
       await fetch("/api/user/settings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ displayName, bio, timezone }),
+        body: JSON.stringify({ displayName, bio }),
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
@@ -507,27 +494,6 @@ export default function SettingsPage() {
               onChange={(e) => setBio(e.target.value)}
               placeholder="Tell others a bit about yourself..."
             />
-          </div>
-        </div>
-
-        {/* Timezone */}
-        <div className="section">
-          <div className="section-title">Timezone</div>
-          <div className="field">
-            <label>Your Timezone</label>
-            <select
-              value={timezone}
-              onChange={(e) => setTimezone(e.target.value)}
-            >
-              {TIMEZONES.map((tz) => (
-                <option key={tz.value} value={tz.value}>
-                  {tz.label}
-                </option>
-              ))}
-            </select>
-            <p className="hint">
-              Used to display assignment due dates in your local time.
-            </p>
           </div>
         </div>
 
