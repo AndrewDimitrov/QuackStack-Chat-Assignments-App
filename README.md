@@ -55,3 +55,21 @@ my-app/
 ├── .env
 ├── .gitignore
 └── package.json
+
+
+
+Фаза 1 — Dashboard layout + Sidebar
+components/Sidebar.js        ← групи + DMs + search + new бутон
+components/ChatHeader.js     ← икона, име, members, online count
+app/dashboard/layout.js      ← sidebar + main content layout
+app/dashboard/page.js        ← welcome screen когато нищо не е избрано
+
+Фаза 2 — DM чат
+app/dashboard/dm/[userId]/page.js
+app/api/dm/route.js           ← GET история / POST съобщение
+lib/models/DirectMessage.js   ← вече го имаме
+Фаза 3 — Група чат + Assignments
+app/dashboard/groups/[id]/page.js
+app/dashboard/groups/[id]/assignments/page.js
+app/api/groups/[id]/messages/route.js
+app/api/groups/[id]/assignments/route.js

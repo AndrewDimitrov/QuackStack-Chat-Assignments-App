@@ -116,7 +116,7 @@ export default function ProfilePage() {
         .profile-page {
           min-height: 100vh;
           background: var(--color-bg);
-          padding-top: 64px;
+          padding-top: 0;
           font-family: 'DM Sans', sans-serif;
         }
 
@@ -456,7 +456,45 @@ export default function ProfilePage() {
                     />
                   </div>
                   <div className="hero-info">
-                    <div className="hero-name">{user.name}</div>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "12px",
+                      }}
+                    >
+                      <div className="hero-name">{user.name}</div>
+                      <button
+                        onClick={() => router.push(`/dashboard/dm/${user._id}`)} // трябва _id от API-то
+                        style={{
+                          padding: "6px 12px",
+                          background: "var(--color-text-primary)",
+                          color: "white",
+                          border: "none",
+                          borderRadius: "10px",
+                          fontSize: "13px",
+                          fontWeight: "500",
+                          cursor: "pointer",
+                          fontFamily: "'DM Sans', sans-serif",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "6px",
+                        }}
+                      >
+                        <svg
+                          width="13"
+                          height="13"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                        >
+                          <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+                        </svg>
+                        Message
+                      </button>
+                    </div>
+
                     <a
                       href={`https://github.com/${user.githubUsername}`}
                       target="_blank"
@@ -511,7 +549,7 @@ export default function ProfilePage() {
                   groups.map((group) => (
                     <a
                       key={group.id}
-                      href={`/groups/${group.id}`}
+                      href={`/dashboard/groups/${group.id}`}
                       className="group-row"
                     >
                       <div className="group-icon">

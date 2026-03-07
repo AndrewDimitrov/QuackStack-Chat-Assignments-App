@@ -1,11 +1,7 @@
 import { auth } from "@/auth";
 import { v2 as cloudinary } from "cloudinary";
 
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
+cloudinary.config({ cloudinary_url: process.env.CLOUDINARY_URL });
 
 export async function POST(request) {
   const session = await auth();
@@ -24,20 +20,24 @@ export async function POST(request) {
   const bytes = await file.arrayBuffer();
   const buffer = Buffer.from(bytes);
 
-  const result = await new Promise((resolve, reject) => {
-    cloudinary.uploader
-      .upload_stream(
-        {
-          folder: "group-icons",
-          transformation: [{ width: 200, height: 200, crop: "fill" }],
-        },
-        (error, result) => {
-          if (error) reject(error);
-          else resolve(result);
-        },
-      )
-      .end(buffer);
-  });
-
-  return Response.json({ url: result.secure_url });
+  try {
+    const result = await new Promise((resolve, reject) => {
+      cloudinary.uploader
+        .upload_stream(
+          {
+            folder: "group-icons",
+            transformation: [{ width: 200, height: 200, crop: "fill" }],
+          },
+          (error, result) => {
+            if (error) reject(error);
+            else resolve(result);
+          },
+        )
+        .end(buffer);
+    });
+    return Response.json({ url: result.secure_url });
+  } catch (error) {
+    console.error("Cloudinary error:", error);
+    return Response.json({ error: error.message }, { status: 500 });
+  }
 }

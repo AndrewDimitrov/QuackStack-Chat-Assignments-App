@@ -37,6 +37,7 @@ export async function GET(request, { params }) {
 
   return Response.json({
     user: {
+      _id: user._id,
       name: user.name,
       avatar: user.avatar,
       bio: user.bio,
