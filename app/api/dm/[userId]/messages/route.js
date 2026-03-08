@@ -42,36 +42,32 @@ export async function POST(request, { params }) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const { userId } = await params;
-  const { content } = await request.json();
+  const { content, image } = await request.json();
 
-  if (!content?.trim())
+  if (!content?.trim() && !image) {
     return Response.json({ error: "Empty message" }, { status: 400 });
+  }
 
   await connectDB();
 
   const message = await DirectMessage.create({
-    content: content.trim(),
+    content: content?.trim() || "",
+    image: image || null,
     sender: session.user.id,
     receiver: userId,
   });
 
   const sender = await User.findById(session.user.id);
-  const receiver = await User.findById(userId);
-
-  if (receiver.blockedUsers?.includes(session.user.id)) {
-    return Response.json(
-      { error: "You are blocked by this user" },
-      { status: 403 },
-    );
-  }
 
   if (userId !== session.user.id) {
     await createNotification({
-      userId: userId,
+      userId,
       type: "message",
       title: sender.name,
-      body: content.trim().slice(0, 60) + (content.length > 60 ? "..." : ""),
-      link: `/dashboard/dm/${session.user.id}`, // изпращача — правилно
+      body: image
+        ? "📷 Image"
+        : content.trim().slice(0, 60) + (content.length > 60 ? "..." : ""),
+      link: `/dashboard/dm/${session.user.id}`,
     });
   }
 
@@ -83,15 +79,72 @@ export async function POST(request, { params }) {
 
   await message.populate("sender receiver", "name avatar githubUsername _id");
 
-  // Pusher — trigger към двата потребителя
   const channelName = [session.user.id, userId].sort().join("-");
   await pusherServer.trigger(`dm-${channelName}`, "new-message", {
     _id: message._id,
     content: message.content,
+    image: message.image,
     createdAt: message.createdAt,
     sender: message.sender,
     receiver: message.receiver,
   });
 
   return Response.json({ message });
+}
+
+export async function PATCH(request, { params }) {
+  const session = await auth();
+  if (!session)
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { userId } = await params;
+  const { messageId, content } = await request.json();
+
+  if (!content?.trim())
+    return Response.json({ error: "Empty message" }, { status: 400 });
+
+  await connectDB();
+
+  const message = await DirectMessage.findById(messageId);
+  if (!message) return Response.json({ error: "Not found" }, { status: 404 });
+  if (message.sender.toString() !== session.user.id)
+    return Response.json({ error: "Unauthorized" }, { status: 403 });
+
+  message.content = content.trim();
+  message.edited = true;
+  await message.save();
+
+  const channelName = [session.user.id, userId].sort().join("-");
+  await pusherServer.trigger(`dm-${channelName}`, "edit-message", {
+    _id: messageId,
+    content: message.content,
+    edited: true,
+  });
+
+  return Response.json({ message });
+}
+
+export async function DELETE(request, { params }) {
+  const session = await auth();
+  if (!session)
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { userId } = await params;
+  const { messageId } = await request.json();
+
+  await connectDB();
+
+  const message = await DirectMessage.findById(messageId);
+  if (!message) return Response.json({ error: "Not found" }, { status: 404 });
+  if (message.sender.toString() !== session.user.id)
+    return Response.json({ error: "Unauthorized" }, { status: 403 });
+
+  await DirectMessage.findByIdAndDelete(messageId);
+
+  const channelName = [session.user.id, userId].sort().join("-");
+  await pusherServer.trigger(`dm-${channelName}`, "delete-message", {
+    _id: messageId,
+  });
+
+  return Response.json({ success: true });
 }

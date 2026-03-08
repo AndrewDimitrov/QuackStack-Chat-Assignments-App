@@ -37,15 +37,15 @@ export async function POST(request, { params }) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
-  const { content } = await request.json();
+  const { content, image } = await request.json();
 
-  if (!content?.trim())
+  if (!content?.trim() && !image) {
     return Response.json({ error: "Empty message" }, { status: 400 });
+  }
 
   await connectDB();
 
   const user = await User.findById(session.user.id);
-
   const group = await Group.findOne({
     _id: id,
     "members.user": user._id,
@@ -53,23 +53,23 @@ export async function POST(request, { params }) {
   if (!group) return Response.json({ error: "Not a member" }, { status: 403 });
 
   const message = await Message.create({
-    content: content.trim(),
+    content: content?.trim() || "",
+    image: image || null,
     sender: user._id,
     group: id,
   });
 
   await message.populate("sender", "name avatar githubUsername _id");
 
-  // Update group lastMessage
   await Group.findByIdAndUpdate(id, {
-    lastMessage: content.trim(),
+    lastMessage: image ? "📷 Image" : content.trim(),
     lastMessageAt: new Date(),
   });
 
-  // Pusher real-time message
   await pusherServer.trigger(`group-${id}`, "new-message", {
     _id: message._id,
     content: message.content,
+    image: message.image,
     createdAt: message.createdAt,
     sender: {
       _id: user._id,
@@ -79,20 +79,88 @@ export async function POST(request, { params }) {
     },
   });
 
-  // Notify all members except sender
   const otherMembers = group.members.filter(
     (m) => m.user._id.toString() !== session.user.id,
   );
-
   for (const member of otherMembers) {
     await createNotification({
       userId: member.user._id,
       type: "message",
       title: group.name,
-      body: `${user.name}: ${content.trim().slice(0, 60)}${content.length > 60 ? "..." : ""}`,
+      body: image
+        ? `${user.name}: 📷 Image`
+        : `${user.name}: ${content.trim().slice(0, 60)}${content.length > 60 ? "..." : ""}`,
       link: `/dashboard/groups/${id}`,
     });
   }
 
+  await pusherServer.trigger(`sidebar-${session.user.id}`, "update", {
+    link: `/dashboard/groups/${id}`,
+  });
+
   return Response.json({ message });
+}
+
+export async function PATCH(request, { params }) {
+  const session = await auth();
+  if (!session)
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { id } = await params;
+  const { messageId, content } = await request.json();
+
+  if (!content?.trim())
+    return Response.json({ error: "Empty message" }, { status: 400 });
+
+  await connectDB();
+
+  const message = await Message.findById(messageId);
+  if (!message) return Response.json({ error: "Not found" }, { status: 404 });
+  if (message.sender.toString() !== session.user.id)
+    return Response.json({ error: "Unauthorized" }, { status: 403 });
+
+  message.content = content.trim();
+  message.edited = true;
+  await message.save();
+
+  await pusherServer.trigger(`group-${id}`, "edit-message", {
+    _id: messageId,
+    content: message.content,
+    edited: true,
+  });
+
+  return Response.json({ message });
+}
+
+export async function DELETE(request, { params }) {
+  const session = await auth();
+  if (!session)
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { id } = await params;
+  const { messageId } = await request.json();
+
+  await connectDB();
+
+  const user = await User.findById(session.user.id);
+  const group = await Group.findById(id);
+  const message = await Message.findById(messageId);
+
+  if (!message) return Response.json({ error: "Not found" }, { status: 404 });
+
+  const isOwner = message.sender.toString() === session.user.id;
+  const isAdmin = group.members.find(
+    (m) => m.user.toString() === session.user.id && m.role === "admin",
+  );
+
+  if (!isOwner && !isAdmin)
+    return Response.json({ error: "Unauthorized" }, { status: 403 });
+
+  await Message.findByIdAndDelete(messageId);
+
+  await pusherServer.trigger(`group-${id}`, "delete-message", {
+    _id: messageId,
+  });
+
+  return Response.json({ success: true });
 }

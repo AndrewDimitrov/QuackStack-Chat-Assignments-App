@@ -8,6 +8,8 @@ import { pusherClient } from "@/lib/pusher";
 import { useRouter } from "next/navigation";
 import UserHoverCard from "@/components/UserHoverCard";
 import { useActiveChat } from "@/app/providers";
+import { createPortal } from "react-dom";
+import MessageContextMenu from "@/components/MessageContextMenu";
 
 export default function DMPage() {
   const { userId } = useParams();
@@ -24,6 +26,21 @@ export default function DMPage() {
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const messagesRef = useRef(null);
+
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+  const imageInputRef = useRef(null);
+
+  const [lightboxImage, setLightboxImage] = useState(null);
+
+  const [contextMenu, setContextMenu] = useState(null);
+  const [editingMsg, setEditingMsg] = useState(null);
+
+  useEffect(() => {
+    setActiveChat(`/dashboard/dm/${userId}`);
+    return () => setActiveChat(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
 
   useEffect(() => {
     if (!session?.user?.id) return;
@@ -59,18 +76,28 @@ export default function DMPage() {
         if (prev.find((m) => m._id === data._id)) return prev;
         return [...prev, data];
       });
-
-      // Веднага mark as read докато си в чата
       await fetch("/api/notifications/mark-by-link", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ link: `/dashboard/dm/${userId}` }), // ← userId не session.user.id
+        body: JSON.stringify({ link: `/dashboard/dm/${userId}` }),
       });
     });
 
-    return () => {
-      pusherClient.unsubscribe(`dm-${channelName}`);
-    };
+    channel.bind("edit-message", (data) => {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m._id === data._id
+            ? { ...m, content: data.content, edited: true }
+            : m,
+        ),
+      );
+    });
+
+    channel.bind("delete-message", (data) => {
+      setMessages((prev) => prev.filter((m) => m._id !== data._id));
+    });
+
+    return () => pusherClient.unsubscribe(`dm-${channelName}`);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, session?.user?.id]);
 
@@ -88,21 +115,66 @@ export default function DMPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
+  function handleImageChange(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    setImageFile(file);
+    setImagePreview(URL.createObjectURL(file));
+    e.target.value = "";
+  }
+
   async function sendMessage() {
-    if (!input.trim() || sending) return;
+    if ((!input.trim() && !imageFile) || sending) return;
     setSending(true);
-    const content = input.trim();
-    setInput("");
+
+    if (editingMsg) {
+      await saveEdit(editingMsg);
+      setSending(false);
+      return;
+    }
+
+    let imageUrl = null;
+    if (imageFile) {
+      const formData = new FormData();
+      formData.append("file", imageFile);
+      const uploadRes = await fetch("/api/upload/chat", {
+        method: "POST",
+        body: formData,
+      });
+      const uploadData = await uploadRes.json();
+      imageUrl = uploadData.url;
+    }
 
     await fetch(`/api/dm/${userId}/messages`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content }),
+      body: JSON.stringify({ content: input.trim(), image: imageUrl }),
     });
 
+    setInput("");
+    setImageFile(null);
+    setImagePreview(null);
     setSending(false);
-    router.refresh();
-    inputRef.current?.focus();
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }
+
+  async function saveEdit(messageId) {
+    if (!input.trim()) return;
+    await fetch(`/api/dm/${userId}/messages`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messageId, content: input }),
+    });
+    setEditingMsg(null);
+    setInput("");
+  }
+
+  async function deleteMessage(messageId) {
+    await fetch(`/api/dm/${userId}/messages`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messageId }),
+    });
   }
 
   async function loadMore() {
@@ -138,6 +210,10 @@ export default function DMPage() {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       sendMessage();
+    }
+    if (e.key === "Escape" && editingMsg) {
+      setEditingMsg(null);
+      setInput("");
     }
   }
 
@@ -205,7 +281,7 @@ export default function DMPage() {
         .dm-header-left {
           display: flex;
           align-items: center;
-          gap: 12px;
+          gap: 8px;
         }
 
         .dm-avatar {
@@ -226,9 +302,10 @@ export default function DMPage() {
         .dm-header-info {}
 
         .dm-header-name {
-          font-size: 15px;
+          font-size: 16px;
           font-weight: 600;
           color: var(--color-text-primary);
+          margin-bottom: -6px;
         }
 
         .dm-header-sub {
@@ -264,7 +341,7 @@ export default function DMPage() {
           display: flex;
           align-items: flex-start;
           gap: 10px;
-          padding: 3px 0;
+          padding: 4px 0;
         }
         .msg-row.own { flex-direction: row-reverse; }
 
@@ -287,16 +364,16 @@ export default function DMPage() {
         .msg-meta {
           display: flex;
           align-items: baseline;
-          gap: 8px;
+          gap: 12px;
           margin-bottom: 3px;
         }
         .msg-row.own .msg-meta { flex-direction: row-reverse; }
 
-        .msg-name { font-size: 12px; font-weight: 600; color: var(--color-text-primary); }
-        .msg-time { font-size: 11px; color: var(--color-text-muted); }
+        .msg-name { font-size: 14px; font-weight: 600; color: var(--color-text-primary); }
+        .msg-time { font-size: 12px; color: var(--color-text-muted); }
 
         .msg-bubble {
-          display: inline-block;
+          display: inline-flex;
           padding: 9px 14px;
           border-radius: 16px;
           font-size: 14px;
@@ -306,11 +383,35 @@ export default function DMPage() {
           border: 1px solid var(--color-border);
           max-width: 480px;
           word-break: break-word;
+          align-items: center;
         }
         .msg-row.own .msg-bubble {
           background: var(--color-accent-muted);
           border-color: var(--color-accent-border);
         }
+
+        .flex-end {
+          align-self: flex-end;
+        }
+
+        .msg-image-wrap {
+          margin-top: 4px;
+          cursor: pointer;
+          display: inline-block;
+        }
+
+        .msg-image-wrap img {
+          border-radius: 12px;
+          max-width: 300px;
+          width: 100%;
+          height: auto !important;
+          display: block;
+        }
+
+        .cancelHover:hover {
+          color: black !important;
+        }
+
 
         .chat-input-wrap {
           padding: 14px 24px;
@@ -332,6 +433,52 @@ export default function DMPage() {
           border-color: var(--color-accent-border);
           box-shadow: 0 0 0 3px var(--color-accent-muted);
           background: white;
+        }
+
+        .chat-upload-btn {
+          width: 32px;
+          height: 32px;
+          border-radius: 8px;
+          border: 1px solid var(--color-border);
+          background: white;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: var(--color-text-muted);
+          flex-shrink: 0;
+          transition: all 0.15s;
+        }
+        .chat-upload-btn:hover {
+          border-color: var(--color-accent-border);
+          color: var(--color-accent);
+        }
+
+        .chat-image-preview {
+          position: relative;
+          padding: 8px 16px 0;
+          display: inline-block;
+        }
+        .chat-image-preview img {
+          height: 80px;
+          border-radius: 10px;
+          object-fit: cover;
+          border: 1px solid var(--color-border);
+        }
+        .chat-image-remove {
+          position: absolute;
+          top: 4px;
+          right: 12px;
+          width: 20px;
+          height: 20px;
+          border-radius: 50%;
+          background: #1a2332;
+          border: none;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: white;
         }
 
         .chat-textarea {
@@ -457,7 +604,15 @@ export default function DMPage() {
             const isOwn = msg.sender?._id?.toString() === session?.user?.id;
 
             return (
-              <div key={msg._id} className={`msg-row ${isOwn ? "own" : ""}`}>
+              <div
+                key={msg._id}
+                className={`msg-row ${isOwn ? "own" : ""}`}
+                onContextMenu={(e) => {
+                  if (!isOwn) return;
+                  e.preventDefault();
+                  setContextMenu({ x: e.clientX, y: e.clientY, msg, isOwn });
+                }}
+              >
                 <UserHoverCard user={isOwn ? null : msg.sender}>
                   <div className="msg-avatar">
                     {msg.sender?.avatar ? (
@@ -473,8 +628,14 @@ export default function DMPage() {
                     )}
                   </div>
                 </UserHoverCard>
-                <div>
-                  <div className="msg-meta">
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "flex-start",
+                  }}
+                >
+                  <div className={`msg-meta ${isOwn ? "flex-end" : ""}`}>
                     <span className="msg-name">
                       {isOwn ? "You" : msg.sender?.name}
                     </span>
@@ -482,18 +643,155 @@ export default function DMPage() {
                       {formatTime(msg.createdAt)}
                     </span>
                   </div>
-                  <div className="msg-bubble">{msg.content}</div>
+                  {msg.content && (
+                    <div className={`msg-bubble ${isOwn ? "flex-end" : ""}`}>
+                      {msg.content}
+                      {msg.edited && (
+                        <span
+                          style={{
+                            fontSize: "10px",
+                            opacity: 0.5,
+                            marginLeft: "6px",
+                          }}
+                        >
+                          (edited)
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  {msg.image && (
+                    <div
+                      className="msg-image-wrap"
+                      onClick={() => setLightboxImage(msg.image)}
+                    >
+                      <Image
+                        src={msg.image}
+                        alt="image"
+                        width={0}
+                        height={0}
+                        unoptimized
+                        onLoad={() =>
+                          bottomRef.current?.scrollIntoView({
+                            behavior: "smooth",
+                          })
+                        }
+                        style={{
+                          borderRadius: "12px",
+                          maxWidth: "300px",
+                          width: "100%",
+                          height: "auto",
+                          cursor: "pointer",
+                        }}
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
             );
           })}
 
           <div ref={bottomRef} />
+
+          {contextMenu && (
+            <MessageContextMenu
+              x={contextMenu.x}
+              y={contextMenu.y}
+              canEdit={!!contextMenu.msg.content}
+              onEdit={() => {
+                setEditingMsg(contextMenu.msg._id);
+                setInput(contextMenu.msg.content);
+                inputRef.current?.focus();
+              }}
+              onDelete={() => deleteMessage(contextMenu.msg._id)}
+              onClose={() => setContextMenu(null)}
+            />
+          )}
         </div>
+
+        {editingMsg && (
+          <div
+            style={{
+              padding: "4px 36px 6px",
+              fontSize: "14px",
+              color: "var(--color-accent)",
+              display: "flex",
+              justifyContent: "flex-start",
+              gap: "12px",
+            }}
+          >
+            <span>✏️ Editing message</span>
+            <button
+              onClick={() => {
+                setEditingMsg(null);
+                setInput("");
+              }}
+              style={{
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                fontSize: "15px",
+                color: "var(--color-text-muted)",
+              }}
+              className="cancelHover"
+            >
+              ✕ Cancel
+            </button>
+          </div>
+        )}
 
         {/* Input */}
         <div className="chat-input-wrap">
+          {imagePreview && (
+            <div className="chat-image-preview">
+              <img src={imagePreview} alt="preview" />
+              <button
+                className="chat-image-remove"
+                onClick={() => {
+                  setImageFile(null);
+                  setImagePreview(null);
+                  if (imageInputRef.current) imageInputRef.current.value = "";
+                }}
+              >
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+          )}
           <div className="chat-input-inner">
+            <button
+              className="chat-upload-btn"
+              onClick={() => imageInputRef.current?.click()}
+              disabled={sending}
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <rect x="3" y="3" width="18" height="18" rx="2" />
+                <circle cx="8.5" cy="8.5" r="1.5" />
+                <polyline points="21,15 16,10 5,21" />
+              </svg>
+            </button>
+            <input
+              ref={imageInputRef}
+              type="file"
+              accept="image/*"
+              style={{ display: "none" }}
+              onChange={handleImageChange}
+            />
             <textarea
               ref={inputRef}
               className="chat-textarea"
@@ -506,7 +804,7 @@ export default function DMPage() {
             <button
               className="chat-send-btn"
               onClick={sendMessage}
-              disabled={!input.trim() || sending}
+              disabled={(!input.trim() && !imageFile) || sending}
             >
               <svg
                 width="15"
@@ -521,6 +819,37 @@ export default function DMPage() {
             </button>
           </div>
         </div>
+
+        {lightboxImage &&
+          createPortal(
+            <div
+              onClick={() => setLightboxImage(null)}
+              style={{
+                position: "fixed",
+                inset: 0,
+                background: "rgba(0,0,0,0.85)",
+                zIndex: 9999,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <img
+                src={lightboxImage}
+                alt="full"
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  maxWidth: "90vw",
+                  maxHeight: "90vh",
+                  width: "auto",
+                  height: "auto",
+                  borderRadius: "12px",
+                  display: "block",
+                }}
+              />
+            </div>,
+            document.body,
+          )}
       </div>
     </>
   );

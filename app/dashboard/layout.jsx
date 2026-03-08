@@ -111,7 +111,7 @@ export default function DashboardLayout({ children }) {
         <div className="dashboard-body">
           {/* Desktop sidebar */}
           <div className="sidebar-desktop">
-            <Sidebar />
+            <Sidebar key="desktop" />
           </div>
 
           {/* Mobile sidebar overlay */}
@@ -122,7 +122,7 @@ export default function DashboardLayout({ children }) {
                 onClick={() => setSidebarOpen(false)}
               />
               <div className="sidebar-overlay-panel">
-                <Sidebar onClose={() => setSidebarOpen(false)} />
+                <Sidebar key="mobile" onClose={() => setSidebarOpen(false)} />
               </div>
             </div>
           )}

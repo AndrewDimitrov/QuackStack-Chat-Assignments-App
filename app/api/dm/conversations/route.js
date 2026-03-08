@@ -37,9 +37,12 @@ export async function GET() {
 
       const unread = await Notification.countDocuments({
         user: session.user.id,
-        link: { $regex: other._id.toString() },
+        link: `/dashboard/dm/${other._id.toString()}`,
         read: false,
       });
+
+      console.log("unread for", other._id.toString(), ":", unread);
+      console.log("looking for link containing:", other._id.toString());
 
       conversations.push({
         userId: other._id,

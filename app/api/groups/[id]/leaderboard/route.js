@@ -2,6 +2,7 @@ import { auth } from "@/auth";
 import connectDB from "@/lib/db";
 import Group from "@/lib/models/Group";
 import Submission from "@/lib/models/Submission";
+import CustomWork from "@/lib/models/CustomWork";
 
 export async function GET(request, { params }) {
   const session = await auth();
@@ -19,15 +20,16 @@ export async function GET(request, { params }) {
   if (!group)
     return Response.json({ error: "Group not found" }, { status: 404 });
 
-  // Get all approved submissions for this group
+  // Get approved submissions
   const submissions = await Submission.find({ status: "approved" }).populate({
     path: "assignment",
     match: { group: id },
     select: "_id group",
   });
-
-  // Filter only submissions for this group's assignments
   const groupSubmissions = submissions.filter((s) => s.assignment !== null);
+
+  // Get approved custom work for this group
+  const customWork = await CustomWork.find({ group: id, status: "approved" });
 
   // Sum points per user
   const pointsMap = {};
@@ -35,8 +37,11 @@ export async function GET(request, { params }) {
     const userId = sub.user.toString();
     pointsMap[userId] = (pointsMap[userId] || 0) + (sub.pointsGiven || 0);
   }
+  for (const work of customWork) {
+    const userId = work.user.toString();
+    pointsMap[userId] = (pointsMap[userId] || 0) + (work.pointsGiven || 0);
+  }
 
-  // Build leaderboard from group members
   const leaderboard = group.members
     .map((m) => ({
       _id: m.user._id,

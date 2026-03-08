@@ -12,7 +12,6 @@ export async function GET(request, { params }) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const { assignmentId } = await params;
-
   await connectDB();
 
   const submissions = await Submission.find({
@@ -28,23 +27,32 @@ export async function POST(request, { params }) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id, assignmentId } = await params;
-  const { githubUrl } = await request.json();
+  const { githubUrl, externalUrl, note, requestedPoints } =
+    await request.json();
 
-  await connectDB();
-
-  // GitHub URL validation
-  const user = await User.findById(session.user.id);
-  const expectedPrefix = `https://github.com/${user.githubUsername}/`;
-  if (!githubUrl.startsWith(expectedPrefix)) {
+  if (!githubUrl?.trim() && !note?.trim()) {
     return Response.json(
-      {
-        error: `URL must be from your GitHub profile (github.com/${user.githubUsername}/...)`,
-      },
+      { error: "Please provide a GitHub URL or a note" },
       { status: 400 },
     );
   }
 
-  // Check already submitted
+  await connectDB();
+
+  const user = await User.findById(session.user.id);
+
+  if (githubUrl?.trim()) {
+    const expectedPrefix = `https://github.com/${user.githubUsername}/`;
+    if (!githubUrl.startsWith(expectedPrefix)) {
+      return Response.json(
+        {
+          error: `URL must be from your GitHub profile (github.com/${user.githubUsername}/...)`,
+        },
+        { status: 400 },
+      );
+    }
+  }
+
   const existing = await Submission.findOne({
     assignment: assignmentId,
     user: session.user.id,
@@ -53,14 +61,16 @@ export async function POST(request, { params }) {
     return Response.json({ error: "Already submitted" }, { status: 400 });
 
   const submission = await Submission.create({
-    githubUrl,
+    githubUrl: githubUrl?.trim() || "",
+    externalUrl: externalUrl?.trim() || "",
+    note: note?.trim() || "",
+    requestedPoints: requestedPoints || null,
     user: session.user.id,
     assignment: assignmentId,
   });
 
   await submission.populate("user", "name avatar githubUsername _id");
 
-  // Notify admins
   const group = await Group.findById(id).populate("members.user", "_id");
   const assignment = await Assignment.findById(assignmentId);
   const admins = group.members.filter((m) => m.role === "admin");
@@ -84,7 +94,7 @@ export async function PATCH(request, { params }) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id, assignmentId } = await params;
-  const { submissionId, status } = await request.json();
+  const { submissionId, status, points } = await request.json();
 
   await connectDB();
 
@@ -106,22 +116,20 @@ export async function PATCH(request, { params }) {
 
   submission.status = status;
   if (status === "approved") {
-    submission.pointsGiven = assignment.points;
-    await User.findByIdAndUpdate(submission.user, {
-      $inc: { points: assignment.points },
-    });
+    const pts = points ? Number(points) : assignment.points;
+    submission.pointsGiven = pts;
+    await User.findByIdAndUpdate(submission.user, { $inc: { points: pts } });
   }
 
   await submission.save();
   await submission.populate("user", "name avatar githubUsername _id");
 
-  // Notify the user
   await createNotification({
     userId: submission.user._id,
     type: status === "approved" ? "submission_approved" : "submission_rejected",
     title:
       status === "approved"
-        ? `Submission approved! +${assignment.points} pts`
+        ? `Submission approved! +${submission.pointsGiven} pts`
         : "Submission rejected",
     body: `"${assignment.title}" in ${group.name}`,
     link: `/dashboard/groups/${id}?tab=assignments&assignmentId=${assignmentId}`,
@@ -185,14 +193,16 @@ export async function PUT(request, { params }) {
   }
 
   const user = await User.findById(session.user.id);
-  const expectedPrefix = `https://github.com/${user.githubUsername}/`;
-  if (!githubUrl.startsWith(expectedPrefix)) {
-    return Response.json(
-      {
-        error: `URL must be from your GitHub profile (github.com/${user.githubUsername}/...)`,
-      },
-      { status: 400 },
-    );
+  if (githubUrl?.trim()) {
+    const expectedPrefix = `https://github.com/${user.githubUsername}/`;
+    if (!githubUrl.startsWith(expectedPrefix)) {
+      return Response.json(
+        {
+          error: `URL must be from your GitHub profile (github.com/${user.githubUsername}/...)`,
+        },
+        { status: 400 },
+      );
+    }
   }
 
   submission.githubUrl = githubUrl;

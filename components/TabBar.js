@@ -14,6 +14,14 @@ export default function TabBar({
           border-bottom: 1px solid var(--color-border);
           padding: 0 24px;
           flex-shrink: 0;
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+          scrollbar-width: none;
+          -ms-overflow-style: none;
+        }
+
+        .tab-bar::-webkit-scrollbar {
+          display: none;
         }
 
         .tab-btn {
@@ -30,6 +38,8 @@ export default function TabBar({
           transition: all 0.15s;
           margin-bottom: -1px;
           position: relative;
+          white-space: nowrap;
+          flex-shrink: 0;
         }
 
         .tab-btn.active {

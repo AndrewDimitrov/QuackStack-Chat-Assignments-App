@@ -12,6 +12,7 @@ import Assignments from "@/components/Assignments";
 import { useActiveChat } from "@/app/providers";
 import MembersPanel from "@/components/MembersPanel";
 import Leaderboard from "@/components/Leaderboard";
+import MessageContextMenu from "@/components/MessageContextMenu";
 
 export default function GroupPage() {
   const { id } = useParams();
@@ -39,6 +40,16 @@ export default function GroupPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const messagesRef = useRef(null);
 
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+  const imageInputRef = useRef(null);
+
+  const [lightboxImage, setLightboxImage] = useState(null);
+
+  const [editingMsg, setEditingMsg] = useState(null);
+  const [editContent, setEditContent] = useState("");
+  const [contextMenu, setContextMenu] = useState(null);
+
   useEffect(() => {
     async function load() {
       const [groupRes, messagesRes] = await Promise.all([
@@ -52,7 +63,7 @@ export default function GroupPage() {
       setHasMore(messagesData.hasMore || false);
       setIsMember(groupData.isMember);
 
-      await fetch("/api/notifications/mark-by-link", {
+      fetch("/api/notifications/mark-by-link", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ link: `/dashboard/groups/${id}` }),
@@ -78,6 +89,20 @@ export default function GroupPage() {
       });
     });
 
+    channel.bind("edit-message", (data) => {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m._id === data._id
+            ? { ...m, content: data.content, edited: true }
+            : m,
+        ),
+      );
+    });
+
+    channel.bind("delete-message", (data) => {
+      setMessages((prev) => prev.filter((m) => m._id !== data._id));
+    });
+
     return () => {
       pusherClient.unsubscribe(`group-${id}`);
     };
@@ -86,14 +111,7 @@ export default function GroupPage() {
 
   useEffect(() => {
     setActiveChat(`/dashboard/groups/${id}`);
-    return () => {
-      setActiveChat(null);
-      fetch("/api/notifications/mark-by-link", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ link: `/dashboard/groups/${id}` }),
-      });
-    };
+    return () => setActiveChat(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
@@ -120,21 +138,75 @@ export default function GroupPage() {
     setJoining(false);
   }
 
+  function handleImageChange(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    setImageFile(file);
+    setImagePreview(URL.createObjectURL(file));
+    e.target.value = "";
+  }
+
   async function sendMessage() {
-    if (!input.trim() || sending) return;
+    if ((!input.trim() && !imageFile) || sending) return;
     setSending(true);
-    const content = input.trim();
-    setInput("");
+
+    if (editingMsg) {
+      await fetch(`/api/groups/${id}/messages`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messageId: editingMsg, content: input }),
+      });
+      setEditingMsg(null);
+      setInput("");
+      setSending(false);
+      return;
+    }
+
+    let imageUrl = null;
+    if (imageFile) {
+      const formData = new FormData();
+      formData.append("file", imageFile);
+      const uploadRes = await fetch("/api/upload/chat", {
+        method: "POST",
+        body: formData,
+      });
+      const uploadData = await uploadRes.json();
+      imageUrl = uploadData.url;
+    }
 
     await fetch(`/api/groups/${id}/messages`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content }),
+      body: JSON.stringify({ content: input.trim(), image: imageUrl }),
     });
 
+    if (inputRef.current) {
+      inputRef.current.style.height = "auto";
+    }
+
+    setInput("");
+    setImageFile(null);
+    setImagePreview(null);
     setSending(false);
-    router.refresh();
-    inputRef.current?.focus();
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }
+
+  async function saveEdit(messageId) {
+    if (!editContent.trim()) return;
+    await fetch(`/api/groups/${id}/messages`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messageId, content: editContent }),
+    });
+    setEditingMsg(null);
+  }
+
+  async function deleteMessage(messageId) {
+    await fetch(`/api/groups/${id}/messages`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messageId }),
+    });
   }
 
   async function loadMore() {
@@ -173,10 +245,20 @@ export default function GroupPage() {
     setGroup(data.group);
   }
 
+  function handleRightClick(e, msg, isOwn) {
+    if (!isOwn && !isAdmin) return;
+    e.preventDefault();
+    setContextMenu({ x: e.clientX, y: e.clientY, msg, isOwn });
+  }
+
   function handleKeyDown(e) {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       sendMessage();
+    }
+    if (e.key === "Escape" && editingMsg) {
+      setEditingMsg(null);
+      setInput("");
     }
   }
 
@@ -381,7 +463,7 @@ export default function GroupPage() {
           display: flex;
           align-items: flex-start;
           gap: 10px;
-          padding: 3px 0;
+          padding: 4px 0;
         }
 
         .msg-row.own {
@@ -409,7 +491,7 @@ export default function GroupPage() {
         .msg-meta {
           display: flex;
           align-items: baseline;
-          gap: 8px;
+          gap: 12px;
           margin-bottom: 3px;
         }
 
@@ -418,13 +500,13 @@ export default function GroupPage() {
         }
 
         .msg-name {
-          font-size: 12px;
+          font-size: 14px;
           font-weight: 600;
           color: var(--color-text-primary);
         }
 
         .msg-time {
-          font-size: 11px;
+          font-size: 12px;
           color: var(--color-text-muted);
         }
 
@@ -439,6 +521,10 @@ export default function GroupPage() {
           border: 1px solid var(--color-border);
           max-width: 480px;
           word-break: break-word;
+        }
+
+        .flex-end {
+          align-self: flex-end;
         }
 
         .msg-row.own .msg-bubble {
@@ -456,7 +542,7 @@ export default function GroupPage() {
 
         .chat-input-inner {
           display: flex;
-          align-items: flex-end;
+          align-items: center;
           gap: 10px;
           padding: 10px 14px;
           background: var(--color-bg);
@@ -471,6 +557,52 @@ export default function GroupPage() {
           background: white;
         }
 
+        .chat-upload-btn {
+          width: 32px;
+          height: 32px;
+          border-radius: 8px;
+          border: 1px solid var(--color-border);
+          background: white;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: var(--color-text-muted);
+          flex-shrink: 0;
+          transition: all 0.15s;
+        }
+        .chat-upload-btn:hover {
+          border-color: var(--color-accent-border);
+          color: var(--color-accent);
+        }
+
+        .chat-image-preview {
+          position: relative;
+          padding: 8px 16px 0;
+          display: inline-block;
+        }
+        .chat-image-preview img {
+          height: 80px;
+          border-radius: 10px;
+          object-fit: cover;
+          border: 1px solid var(--color-border);
+        }
+        .chat-image-remove {
+          position: absolute;
+          top: 4px;
+          right: 12px;
+          width: 20px;
+          height: 20px;
+          border-radius: 50%;
+          background: #1a2332;
+          border: none;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: white;
+        }
+
         .chat-textarea {
           flex: 1;
           border: none;
@@ -480,9 +612,15 @@ export default function GroupPage() {
           color: var(--color-text-primary);
           outline: none;
           resize: none;
+          min-height: 24px;
           max-height: 120px;
           line-height: 1.5;
           padding: 0;
+          overflow-y: auto;
+        }
+
+        .cancelHover:hover {
+          color: black !important;
         }
 
         .chat-textarea::placeholder { color: var(--color-text-muted); }
@@ -548,7 +686,7 @@ export default function GroupPage() {
                     style={{
                       textAlign: "center",
                       padding: "8px",
-                      fontSize: "12px",
+                      fontSize: "13px",
                       color: "var(--color-text-muted)",
                     }}
                   >
@@ -592,6 +730,7 @@ export default function GroupPage() {
                     <div
                       key={msg._id}
                       className={`msg-row ${isOwn ? "own" : ""}`}
+                      onContextMenu={(e) => handleRightClick(e, msg, isOwn)}
                     >
                       <UserHoverCard user={isOwn ? null : msg.sender}>
                         <div className="msg-avatar">
@@ -617,11 +756,78 @@ export default function GroupPage() {
                             {formatTime(msg.createdAt)}
                           </span>
                         </div>
-                        <div className="msg-bubble">{msg.content}</div>
+                        <div
+                          style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "flex-start",
+                            gap: "4px",
+                          }}
+                        >
+                          <>
+                            {msg.content && (
+                              <div
+                                className={`msg-bubble ${isOwn ? "flex-end" : ""}`}
+                              >
+                                {msg.content}
+                                {msg.edited && (
+                                  <span
+                                    style={{
+                                      fontSize: "10px",
+                                      opacity: 0.5,
+                                      marginLeft: "6px",
+                                    }}
+                                  >
+                                    (edited)
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                            {msg.image && (
+                              <div
+                                className="msg-image-wrap"
+                                onClick={() => setLightboxImage(msg.image)}
+                              >
+                                <img
+                                  src={msg.image}
+                                  alt="image"
+                                  onLoad={() =>
+                                    bottomRef.current?.scrollIntoView({
+                                      behavior: "smooth",
+                                    })
+                                  }
+                                  style={{
+                                    borderRadius: "12px",
+                                    maxWidth: "300px",
+                                    width: "100%",
+                                    height: "auto",
+                                    display: "block",
+                                    cursor: "pointer",
+                                  }}
+                                />
+                              </div>
+                            )}
+                          </>
+                        </div>
                       </div>
                     </div>
                   );
                 })}
+
+                {contextMenu && (
+                  <MessageContextMenu
+                    x={contextMenu.x}
+                    y={contextMenu.y}
+                    canEdit={contextMenu.isOwn && !!contextMenu.msg.content}
+                    onEdit={() => {
+                      setEditingMsg(contextMenu.msg._id);
+                      setInput(contextMenu.msg.content);
+                      inputRef.current?.focus();
+                    }}
+                    onDelete={() => deleteMessage(contextMenu.msg._id)}
+                    onClose={() => setContextMenu(null)}
+                  />
+                )}
 
                 <div ref={bottomRef} />
               </div>
@@ -636,21 +842,109 @@ export default function GroupPage() {
               )}
             </div>
 
+            {editingMsg && (
+              <div
+                style={{
+                  padding: "4px 36px 6px",
+                  fontSize: "14px",
+                  color: "var(--color-accent)",
+                  display: "flex",
+                  justifyContent: "flex-start",
+                  gap: "12px",
+                }}
+              >
+                <span>✏️ Editing message</span>
+                <button
+                  onClick={() => {
+                    setEditingMsg(null);
+                    setInput("");
+                  }}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    fontSize: "15px",
+                    color: "var(--color-text-muted)",
+                  }}
+                  className="cancelHover"
+                >
+                  ✕ Cancel
+                </button>
+              </div>
+            )}
+
             <div className="chat-input-wrap">
+              {imagePreview && (
+                <div className="chat-image-preview">
+                  <img src={imagePreview} alt="preview" />
+                  <button
+                    className="chat-image-remove"
+                    onClick={() => {
+                      setImageFile(null);
+                      setImagePreview(null);
+                      if (imageInputRef.current)
+                        imageInputRef.current.value = "";
+                    }}
+                  >
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                      <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                  </button>
+                </div>
+              )}
               <div className="chat-input-inner">
+                <button
+                  className="chat-upload-btn"
+                  onClick={() => imageInputRef.current?.click()}
+                  disabled={sending}
+                >
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <rect x="3" y="3" width="18" height="18" rx="2" />
+                    <circle cx="8.5" cy="8.5" r="1.5" />
+                    <polyline points="21,15 16,10 5,21" />
+                  </svg>
+                </button>
+                <input
+                  ref={imageInputRef}
+                  type="file"
+                  accept="image/*"
+                  style={{ display: "none" }}
+                  onChange={handleImageChange}
+                />
+
                 <textarea
                   ref={inputRef}
                   className="chat-textarea"
                   placeholder={`Message ${group?.name || ""}...`}
                   value={input}
-                  onChange={(e) => setInput(e.target.value)}
+                  onChange={(e) => {
+                    setInput(e.target.value);
+                    e.target.style.height = "auto";
+                    e.target.style.height =
+                      Math.min(e.target.scrollHeight, 120) + "px";
+                  }}
                   onKeyDown={handleKeyDown}
-                  rows={1}
+                  style={{ height: "24px" }}
                 />
                 <button
                   className="chat-send-btn"
                   onClick={sendMessage}
-                  disabled={!input.trim() || sending}
+                  disabled={(!input.trim() && !imageFile) || sending}
                 >
                   <svg
                     width="15"
@@ -678,6 +972,32 @@ export default function GroupPage() {
         )}
 
         {activeTab === "leaderboard" && <Leaderboard groupId={id} />}
+
+        {lightboxImage && (
+          <div
+            onClick={() => setLightboxImage(null)}
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(0,0,0,0.85)",
+              zIndex: 999,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <img
+              src={lightboxImage}
+              alt="full"
+              style={{
+                maxWidth: "90vw",
+                maxHeight: "90vh",
+                borderRadius: "12px",
+                objectFit: "contain",
+              }}
+            />
+          </div>
+        )}
       </div>
     </>
   );

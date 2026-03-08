@@ -21,7 +21,7 @@ export async function GET() {
     groups.map(async (group) => {
       const unread = await Notification.countDocuments({
         user: user._id,
-        link: { $regex: group._id.toString() },
+        link: `/dashboard/groups/${group._id}`,
         read: false,
       });
       return { ...group.toObject(), unreadCount: unread };

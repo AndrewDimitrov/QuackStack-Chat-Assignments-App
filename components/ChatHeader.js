@@ -1,7 +1,10 @@
 "use client";
+
 import Image from "next/image";
+import { useState } from "react";
 
 export default function ChatHeader({ group, onlineCount, onMembersClick }) {
+  const [copied, setCopied] = useState(false);
   if (!group) return null;
 
   return (
@@ -45,8 +48,9 @@ export default function ChatHeader({ group, onlineCount, onMembersClick }) {
         }
 
         .chat-header-name {
-          font-size: 15px;
+          font-size: 16px;
           font-weight: 600;
+          margin-bottom: -2px;
           color: var(--color-text-primary);
           font-family: 'DM Sans', sans-serif;
         }
@@ -73,7 +77,7 @@ export default function ChatHeader({ group, onlineCount, onMembersClick }) {
           display: flex;
           align-items: center;
           gap: 4px;
-          font-size: 12px;
+          font-size: 13px;
           color: var(--color-text-muted);
           font-family: 'DM Sans', sans-serif;
         }
@@ -139,14 +143,53 @@ export default function ChatHeader({ group, onlineCount, onMembersClick }) {
           </div>
         </div>
         <div className="header-right">
+          {group?.inviteCode && (
+            <button
+              className="header-btn"
+              title="Copy invite link"
+              onClick={() => {
+                navigator.clipboard.writeText(
+                  `${window.location.origin}/join/${group.inviteCode}`,
+                );
+                // показване на copied feedback
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+              }}
+            >
+              {copied ? (
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="var(--color-accent)"
+                  strokeWidth="2"
+                >
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              ) : (
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71" />
+                  <path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71" />
+                </svg>
+              )}
+            </button>
+          )}
           <button
             className="header-btn"
             onClick={onMembersClick}
             title="Members"
           >
             <svg
-              width="15"
-              height="15"
+              width="18"
+              height="18"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"

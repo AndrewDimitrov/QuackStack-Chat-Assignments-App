@@ -28,6 +28,7 @@ export default function Header() {
   const userMenuRef = useRef(null);
   const notifRef = useRef(null);
   const { activeChat } = useActiveChat();
+  const activeChatRef = useRef(activeChat);
 
   const loadNotifications = useCallback(async () => {
     const res = await fetch("/api/notifications");
@@ -37,17 +38,24 @@ export default function Header() {
   }, []);
 
   useEffect(() => {
+    activeChatRef.current = activeChat;
+  }, [activeChat]);
+
+  useEffect(() => {
     if (!session?.user?.id) return;
     loadNotifications();
 
     const channel = pusherClient.subscribe(`notifications-${session.user.id}`);
 
     channel.bind("new-notification", (data) => {
-      if (activeChat && data.link === activeChat) return;
+      // Само message нотификации се филтрират когато си в същия чат
+      if (data.type === "message") {
+        const baseLink = data?.link?.split("?")[0];
+        const baseActiveChat = activeChatRef.current?.split("?")[0];
+        if (baseActiveChat && baseLink && baseActiveChat === baseLink) return;
+      }
       setNotifications((prev) => {
-        if (prev.find((n) => n._id === data._id)) {
-          return prev;
-        }
+        if (prev.find((n) => n._id === data._id)) return prev;
         return [data, ...prev].slice(0, 30);
       });
       setUnreadCount((prev) => prev + 1);
@@ -56,6 +64,18 @@ export default function Header() {
     channel.bind("read-all", () => {
       setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
       setUnreadCount(0);
+    });
+
+    channel.bind("read-link", (data) => {
+      setNotifications((prev) =>
+        prev.map((n) => (n.link === data.link ? { ...n, read: true } : n)),
+      );
+      // Преброй колко реално са unread след update
+      setNotifications((prev) => {
+        const unreadCount = prev.filter((n) => !n.read).length;
+        setUnreadCount(unreadCount);
+        return prev;
+      });
     });
 
     return () => {

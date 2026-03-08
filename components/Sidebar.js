@@ -22,8 +22,11 @@ export default function Sidebar({ onClose }) {
   const { activeChat } = useActiveChat();
   const activeChatRef = useRef(activeChat);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const loadData = useCallback(async () => {
+    console.log("loadData called", new Error().stack);
+
     const [groupsRes, dmsRes] = await Promise.all([
       fetch("/api/groups"),
       fetch("/api/dm/conversations"),
@@ -36,10 +39,7 @@ export default function Sidebar({ onClose }) {
 
   useEffect(() => {
     activeChatRef.current = activeChat;
-    if (!activeChat) {
-      loadData();
-    }
-  }, [activeChat, loadData]);
+  }, [activeChat]);
 
   useEffect(() => {
     if (!session?.user?.id) return;
@@ -47,13 +47,29 @@ export default function Sidebar({ onClose }) {
 
     const channel = pusherClient.subscribe(`sidebar-${session.user.id}`);
     channel.bind("update", (data) => {
-      if (
-        activeChatRef.current &&
-        data?.link &&
-        activeChatRef.current === data?.link
-      ) {
+      console.log("sidebar update received:", data);
+      const baseLink = data?.link?.split("?")[0];
+      const baseActiveChat = activeChatRef.current?.split("?")[0];
+      console.log("baseLink:", baseLink, "baseActiveChat:", baseActiveChat);
+      if (baseActiveChat && baseLink && baseActiveChat === baseLink) {
+        console.log("SKIPPED");
+        setDms((prev) =>
+          prev.map((dm) =>
+            `/dashboard/dm/${dm.userId}` === baseLink
+              ? { ...dm, unreadCount: 0 }
+              : dm,
+          ),
+        );
+        setGroups((prev) =>
+          prev.map((g) =>
+            `/dashboard/groups/${g._id}` === baseLink
+              ? { ...g, unreadCount: 0 }
+              : g,
+          ),
+        );
         return;
       }
+      console.log("LOADING DATA");
       loadData();
     });
 
@@ -105,6 +121,13 @@ export default function Sidebar({ onClose }) {
   const filteredDMs = dms.filter((d) =>
     d.name.toLowerCase().includes(search.toLowerCase()),
   );
+
+  async function handleRefresh() {
+    if (refreshing) return;
+    setRefreshing(true);
+    await loadData();
+    setTimeout(() => setRefreshing(false), 10000); // 10 секунди cooldown
+  }
 
   return (
     <>
@@ -158,6 +181,15 @@ export default function Sidebar({ onClose }) {
           border-color: var(--color-accent-border);
           background: white;
           box-shadow: 0 0 0 3px var(--color-accent-muted);
+        }
+
+        @keyframes spin-once {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(180deg); }
+        }
+
+        .sb-refresh-spinning {
+          animation: spin-once 0.4s ease-out forwards;
         }
 
         /* Scroll area */
@@ -276,7 +308,7 @@ export default function Sidebar({ onClose }) {
         }
 
         .sb-item-name {
-          font-size: 13px;
+          font-size: 14px;
           font-weight: 600;
           color: var(--color-text-primary);
           white-space: nowrap;
@@ -285,13 +317,13 @@ export default function Sidebar({ onClose }) {
         }
 
         .sb-item-time {
-          font-size: 11px;
+          font-size: 12px;
           color: var(--color-text-muted);
           flex-shrink: 0;
         }
 
         .sb-item-preview {
-          font-size: 12px;
+          font-size: 13px;
           color: var(--color-text-muted);
           white-space: nowrap;
           overflow: hidden;
@@ -435,13 +467,37 @@ export default function Sidebar({ onClose }) {
               </svg>
               Groups
             </span>
-            <button
-              className="sb-new-btn"
-              onClick={() => setShowCreateModal(true)}
-              title="New group"
-            >
-              +
-            </button>
+
+            <div style={{ display: "flex", gap: "6px" }}>
+              <button
+                className="sb-new-btn"
+                onClick={handleRefresh}
+                title="Refresh"
+                disabled={refreshing}
+                style={{ opacity: refreshing ? 0.4 : 1 }}
+              >
+                <svg
+                  className={refreshing ? "sb-refresh-spinning" : ""}
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                >
+                  <polyline points="23 4 23 10 17 10" />
+                  <polyline points="1 20 1 14 7 14" />
+                  <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" />
+                </svg>
+              </button>
+              <button
+                className="sb-new-btn"
+                onClick={() => setShowCreateModal(true)}
+                title="New group"
+              >
+                +
+              </button>
+            </div>
           </div>
 
           {showCreateModal && (

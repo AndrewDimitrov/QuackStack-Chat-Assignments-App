@@ -31,6 +31,7 @@ export default function ProfilePage() {
   const [repos, setRepos] = useState([]);
   const [githubUser, setGithubUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [customWork, setCustomWork] = useState([]);
 
   useEffect(() => {
     async function load() {
@@ -45,6 +46,7 @@ export default function ProfilePage() {
       const reposData = await reposRes.json();
       const ghUser = await githubUserRes.json();
       setData(profile);
+      setCustomWork(profile.customWork || []);
       setRepos(Array.isArray(reposData) ? reposData : []);
       setGithubUser(ghUser);
       setLoading(false);
@@ -576,45 +578,75 @@ export default function ProfilePage() {
           {/* Activity */}
           <div className="section-wrap">
             <div className="section-heading">Recent Activity</div>
-            {submissions.length === 0 ? (
-              <p className="empty-state">No submissions yet.</p>
-            ) : (
-              <div className="activity-list">
-                {submissions.map((s) => {
-                  const cfg = STATUS_CONFIG[s.status] || STATUS_CONFIG.pending;
-                  const date = new Date(s.createdAt).toLocaleDateString(
-                    "en-GB",
-                    {
-                      day: "numeric",
-                      month: "short",
-                      year: "numeric",
-                    },
-                  );
-                  return (
-                    <div key={s.id} className="activity-row">
-                      <div className="activity-left">
-                        <div className="activity-title">
-                          {s.assignmentTitle}
-                        </div>
-                        <div className="activity-sub">
-                          {s.groupName && <span>in {s.groupName} · </span>}
-                          {s.status === "approved" && (
-                            <span>{s.pointsGiven} pts · </span>
-                          )}
-                          <span>{date}</span>
-                        </div>
-                      </div>
-                      <span
-                        className="status-chip"
-                        style={{ color: cfg.color, background: cfg.bg }}
+            {(() => {
+              const activities = [
+                ...submissions.map((s) => ({ ...s, _type: "submission" })),
+                ...customWork.map((w) => ({ ...w, _type: "customWork" })),
+              ]
+                .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+                .slice(0, 10);
+
+              if (activities.length === 0) {
+                return <p className="empty-state">No activity yet.</p>;
+              }
+
+              return (
+                <div className="activity-list">
+                  {activities.map((item) => {
+                    const cfg =
+                      STATUS_CONFIG[item.status] || STATUS_CONFIG.pending;
+                    const date = new Date(item.createdAt).toLocaleDateString(
+                      "en-GB",
+                      {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      },
+                    );
+
+                    const title =
+                      item._type === "submission"
+                        ? item.assignmentTitle
+                        : item.title;
+
+                    const isCustomWork = item._type === "customWork";
+
+                    return (
+                      <div
+                        key={`${item._type}-${item.id}`}
+                        className="activity-row"
                       >
-                        {cfg.icon} {cfg.label}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+                        <div className="activity-left">
+                          <div className="activity-title">
+                            {title}
+                            {isCustomWork && (
+                              <span className="activity-type-badge">
+                                &nbsp;- Custom Work
+                              </span>
+                            )}
+                          </div>
+                          <div className="activity-sub">
+                            {item.groupName && (
+                              <span>in {item.groupName} · </span>
+                            )}
+                            {item.status === "approved" && (
+                              <span>{item.pointsGiven} pts · </span>
+                            )}
+                            <span>{date}</span>
+                          </div>
+                        </div>
+                        <span
+                          className="status-chip"
+                          style={{ color: cfg.color, background: cfg.bg }}
+                        >
+                          {cfg.icon} {cfg.label}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </div>
 
           {/* GitHub Repos */}

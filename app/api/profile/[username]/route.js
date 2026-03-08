@@ -3,6 +3,7 @@ import User from "@/lib/models/User";
 import Group from "@/lib/models/Group";
 import Submission from "@/lib/models/Submission";
 import Assignment from "@/lib/models/Assignment";
+import CustomWork from "@/lib/models/CustomWork";
 
 export async function GET(request, { params }) {
   const { username } = await params;
@@ -17,23 +18,23 @@ export async function GET(request, { params }) {
     return Response.json({ error: "User not found" }, { status: 404 });
   }
 
-  // Get groups the user is a member of
   const groups = await Group.find({ "members.user": user._id }).select(
     "name icon _id",
   );
 
-  // Get last 10 submissions with assignment and group info
   const submissions = await Submission.find({ user: user._id })
     .sort({ createdAt: -1 })
     .limit(10)
     .populate({
       path: "assignment",
       select: "title points group",
-      populate: {
-        path: "group",
-        select: "name",
-      },
+      populate: { path: "group", select: "name" },
     });
+
+  const customWork = await CustomWork.find({ user: user._id })
+    .sort({ createdAt: -1 })
+    .limit(10)
+    .populate("group", "name _id");
 
   return Response.json({
     user: {
@@ -45,11 +46,7 @@ export async function GET(request, { params }) {
       points: user.points,
       createdAt: user.createdAt,
     },
-    groups: groups.map((g) => ({
-      id: g._id,
-      name: g.name,
-      icon: g.icon,
-    })),
+    groups: groups.map((g) => ({ id: g._id, name: g.name, icon: g.icon })),
     submissions: submissions.map((s) => ({
       id: s._id,
       assignmentTitle: s.assignment?.title,
@@ -58,6 +55,18 @@ export async function GET(request, { params }) {
       status: s.status,
       pointsGiven: s.pointsGiven,
       createdAt: s.createdAt,
+    })),
+    customWork: customWork.map((w) => ({
+      id: w._id,
+      title: w.title,
+      description: w.description,
+      githubUrl: w.githubUrl,
+      externalUrl: w.externalUrl,
+      groupName: w.group?.name,
+      groupId: w.group?._id,
+      status: w.status,
+      pointsGiven: w.pointsGiven,
+      createdAt: w.createdAt,
     })),
   });
 }

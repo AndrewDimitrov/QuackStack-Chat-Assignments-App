@@ -5,24 +5,22 @@ import { pusherServer } from "@/lib/pusher";
 
 export async function POST(request) {
   const session = await auth();
-  if (!session)
-    return Response.json({ error: "Unauthorized" }, { status: 401 });
-
   const { link } = await request.json();
-
   await connectDB();
 
-  await Notification.updateMany(
+  console.log("mark-by-link link:", link);
+  console.log("user:", session.user.id);
+
+  const result = await Notification.updateMany(
     { user: session.user.id, link, read: false },
     { read: true },
   );
 
-  await pusherServer.trigger(`sidebar-${session.user.id}`, "update", { link });
-  await pusherServer.trigger(
-    `notifications-${session.user.id}`,
-    "read-all",
-    {},
-  );
+  console.log("updated:", result.modifiedCount);
 
+  await pusherServer.trigger(`notifications-${session.user.id}`, "read-link", {
+    link,
+  });
+  await pusherServer.trigger(`sidebar-${session.user.id}`, "update", { link });
   return Response.json({ success: true });
 }
