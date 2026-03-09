@@ -550,13 +550,15 @@ export default function GroupPage() {
 
         .chat-input-inner {
           display: flex;
-          align-items: center;
           gap: 10px;
           padding: 4px 14px;
           background: var(--color-bg);
           border: 1px solid var(--color-border);
           border-radius: 14px;
           transition: border-color 0.2s, box-shadow 0.2s;
+          max-width: calc(100vw - 100px);
+          align-items: center;
+          margin-left: auto;
         }
 
         .chat-input-inner:focus-within {

@@ -82,7 +82,7 @@ export default function DashboardLayout({ children }) {
         .hamburger {
           display: none;
           position: fixed;
-          bottom: 24px;
+          bottom: 18px;
           left: 16px;
           z-index: 150;
           width: 44px;

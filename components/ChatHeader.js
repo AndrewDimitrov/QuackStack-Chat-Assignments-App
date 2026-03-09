@@ -26,12 +26,15 @@ export default function ChatHeader({
           background: white;
           border-bottom: 1px solid var(--color-border);
           flex-shrink: 0;
+          gap: 12px;
         }
 
         .chat-header-left {
           display: flex;
           align-items: center;
           gap: 12px;
+          min-width: 0;
+          flex: 1;
         }
 
         .header-right {
@@ -60,6 +63,9 @@ export default function ChatHeader({
           margin-bottom: -2px;
           color: var(--color-text-primary);
           font-family: 'DM Sans', sans-serif;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
 
         .header-btn {
@@ -119,7 +125,7 @@ export default function ChatHeader({
               "👥"
             )}
           </div>
-          <div>
+          <div style={{ minWidth: 0 }}>
             <div className="chat-header-name">{group.name}</div>
             <div className="chat-header-meta">
               <span className="chat-header-stat">
