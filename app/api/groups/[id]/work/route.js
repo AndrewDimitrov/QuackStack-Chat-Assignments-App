@@ -117,7 +117,7 @@ export async function PATCH(request, { params }) {
 
   work.status = status;
   if (status === "approved") {
-    const pts = points ? Number(points) : 10;
+    const pts = Number(points ?? 0);
     work.pointsGiven = pts;
     await User.findByIdAndUpdate(work.user, { $inc: { points: pts } });
   }

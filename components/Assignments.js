@@ -57,6 +57,10 @@ export default function Assignments({
   const [workRequestedPoints, setWorkRequestedPoints] = useState("");
 
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const [aiReview, setAiReview] = useState({});
+  const [aiLoading, setAiLoading] = useState({});
+  const [workAiReview, setWorkAiReview] = useState({});
+  const [workAiLoading, setWorkAiLoading] = useState({});
 
   const loadAssignments = useCallback(async () => {
     setLoading(true);
@@ -287,6 +291,23 @@ export default function Assignments({
     loadWork();
   }
 
+  async function getWorkAiReview(work) {
+    setWorkAiLoading((prev) => ({ ...prev, [work._id]: true }));
+    const res = await fetch("/api/ai/review", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        githubUrl: work.githubUrl,
+        assignmentTitle: work.title,
+        assignmentDescription: work.description,
+        points: work.requestedPoints || 10,
+      }),
+    });
+    const data = await res.json();
+    setWorkAiReview((prev) => ({ ...prev, [work._id]: data }));
+    setWorkAiLoading((prev) => ({ ...prev, [work._id]: false }));
+  }
+
   function formatDate(date) {
     if (!date) return null;
     return new Date(date).toLocaleDateString("en-GB", {
@@ -294,6 +315,24 @@ export default function Assignments({
       month: "short",
       year: "numeric",
     });
+  }
+
+  async function getAiReview(submission) {
+    if (!selected) return;
+    setAiLoading((prev) => ({ ...prev, [submission._id]: true }));
+    const res = await fetch("/api/ai/review", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        githubUrl: submission.githubUrl,
+        assignmentTitle: selected.title,
+        assignmentDescription: selected.description,
+        points: selected.points,
+      }),
+    });
+    const data = await res.json();
+    setAiReview((prev) => ({ ...prev, [submission._id]: data }));
+    setAiLoading((prev) => ({ ...prev, [submission._id]: false }));
   }
 
   function isOverdue(date) {
@@ -685,13 +724,19 @@ export default function Assignments({
 
         .submission-row {
           display: flex;
-          align-items: center;
+          flex-direction: column;
           gap: 12px;
           padding: 12px 14px;
           background: white;
           border: 1px solid var(--color-border);
           border-radius: 12px;
           margin-bottom: 8px;
+        }
+
+        .submission-holder {
+          display: flex;
+          align-items: center;
+          gap: 12px;
         }
 
         .submission-avatar {
@@ -948,10 +993,11 @@ export default function Assignments({
 
         .work-card-footer {
           display: flex;
-          align-items: center;
+          align-items: flex-start;
           justify-content: space-between;
           gap: 10px;
           flex-wrap: wrap;
+          flex-direction: column;
         }
 
         .work-card-actions {
@@ -1530,72 +1576,186 @@ export default function Assignments({
                           )}
                           {submissions.map((s) => (
                             <div key={s._id} className="submission-row">
-                              <div className="submission-avatar">
-                                {s.user?.avatar ? (
-                                  <Image
-                                    src={s.user.avatar}
-                                    alt={s.user.name}
-                                    width={32}
-                                    height={32}
-                                    style={{ objectFit: "cover" }}
-                                  />
-                                ) : (
-                                  s.user?.name?.[0]
-                                )}
-                              </div>
-                              <div className="submission-info">
-                                <div className="submission-name">
-                                  {s.user?.name}
+                              <div className="submission-holder">
+                                <div className="submission-avatar">
+                                  {s.user?.avatar ? (
+                                    <Image
+                                      src={s.user.avatar}
+                                      alt={s.user.name}
+                                      width={32}
+                                      height={32}
+                                      style={{ objectFit: "cover" }}
+                                    />
+                                  ) : (
+                                    s.user?.name?.[0]
+                                  )}
                                 </div>
-                                {s.githubUrl && (
-                                  <a
-                                    href={s.githubUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="submission-url"
-                                  >
-                                    {s.githubUrl}
-                                  </a>
-                                )}
-                                {s.externalUrl && (
-                                  <a
-                                    href={s.externalUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="submission-url"
-                                  >
-                                    🔗 {s.externalUrl}
-                                  </a>
-                                )}
-                                {s.note && (
-                                  <div className="submission-note">
-                                    &quot;{s.note}&quot;
+                                <div className="submission-info">
+                                  <div className="submission-name">
+                                    {s.user?.name}
                                   </div>
-                                )}
-                                {s.requestedPoints && (
-                                  <div
-                                    style={{
-                                      fontSize: "12px",
-                                      color: "var(--color-accent)",
-                                      fontWeight: 600,
-                                      marginTop: "2px",
-                                    }}
-                                  >
-                                    Requested: {s.requestedPoints} pts
-                                  </div>
-                                )}
+                                  {s.githubUrl && (
+                                    <a
+                                      href={s.githubUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="submission-url"
+                                    >
+                                      {s.githubUrl}
+                                    </a>
+                                  )}
+                                  {s.externalUrl && (
+                                    <a
+                                      href={s.externalUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="submission-url"
+                                    >
+                                      🔗 {s.externalUrl}
+                                    </a>
+                                  )}
+                                  {s.note && (
+                                    <div className="submission-note">
+                                      &quot;{s.note}&quot;
+                                    </div>
+                                  )}
+                                  {s.requestedPoints && (
+                                    <div
+                                      style={{
+                                        fontSize: "12px",
+                                        color: "var(--color-accent)",
+                                        fontWeight: 600,
+                                        marginTop: "2px",
+                                      }}
+                                    >
+                                      Requested: {s.requestedPoints} pts
+                                    </div>
+                                  )}
+                                </div>
                               </div>
+
+                              {isAdmin &&
+                                s.githubUrl &&
+                                s.status === "pending" && (
+                                  <div style={{ marginTop: "6px" }}>
+                                    <button
+                                      type="button"
+                                      onClick={() => getAiReview(s)}
+                                      disabled={aiLoading[s._id]}
+                                      style={{
+                                        padding: "4px 10px",
+                                        borderRadius: "7px",
+                                        border:
+                                          "1px solid var(--color-accent-border)",
+                                        background: "var(--color-accent-muted)",
+                                        color: "var(--color-accent)",
+                                        cursor: "pointer",
+                                        fontSize: "12px",
+                                        fontFamily: "'DM Sans', sans-serif",
+                                      }}
+                                    >
+                                      {aiLoading[s._id]
+                                        ? "Analyzing..."
+                                        : "✨ AI Review"}
+                                    </button>
+
+                                    {aiReview[s._id] &&
+                                      !aiReview[s._id].error && (
+                                        <div
+                                          style={{
+                                            marginTop: "8px",
+                                            padding: "10px 12px",
+                                            borderRadius: "10px",
+                                            background:
+                                              "var(--color-accent-muted)",
+                                            border:
+                                              "1px solid var(--color-accent-border)",
+                                            fontSize: "13px",
+                                            display: "flex",
+                                            flexDirection: "column",
+                                            gap: "6px",
+                                          }}
+                                        >
+                                          <div
+                                            style={{
+                                              fontWeight: 600,
+                                              color: "var(--color-accent)",
+                                            }}
+                                          >
+                                            ✨ AI suggests:{" "}
+                                            {aiReview[s._id].suggestedPoints} /{" "}
+                                            {selected?.points} pts
+                                          </div>
+                                          <div
+                                            style={{
+                                              color:
+                                                "var(--color-text-primary)",
+                                              lineHeight: 1.5,
+                                            }}
+                                          >
+                                            {aiReview[s._id].summary}
+                                          </div>
+                                          {aiReview[s._id].positive && (
+                                            <div
+                                              style={{
+                                                color: "#22c55e",
+                                                fontSize: "12px",
+                                              }}
+                                            >
+                                              ✓ {aiReview[s._id].positive}
+                                            </div>
+                                          )}
+                                          {aiReview[s._id].suggestion && (
+                                            <div
+                                              style={{
+                                                color:
+                                                  "var(--color-text-muted)",
+                                                fontSize: "12px",
+                                              }}
+                                            >
+                                              💡 {aiReview[s._id].suggestion}
+                                            </div>
+                                          )}
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              const suggested =
+                                                aiReview[s._id].suggestedPoints;
+                                              setPointsOverride((prev) => ({
+                                                ...prev,
+                                                [s._id]: String(suggested),
+                                              }));
+                                            }}
+                                            style={{
+                                              alignSelf: "flex-start",
+                                              padding: "3px 8px",
+                                              borderRadius: "6px",
+                                              border:
+                                                "1px solid var(--color-accent-border)",
+                                              background: "white",
+                                              color: "var(--color-accent)",
+                                              cursor: "pointer",
+                                              fontSize: "12px",
+                                              fontFamily:
+                                                "'DM Sans', sans-serif",
+                                            }}
+                                          >
+                                            Use suggested points
+                                          </button>
+                                        </div>
+                                      )}
+                                  </div>
+                                )}
                               {s.status === "pending" ? (
                                 <div className="submission-actions">
                                   <input
                                     type="number"
                                     className="points-override-input"
-                                    placeholder={
-                                      s.requestedPoints ||
-                                      selected?.points ||
-                                      "10"
+                                    placeholder={selected?.points || "10"}
+                                    value={
+                                      pointsOverride[s._id] ??
+                                      (s.requestedPoints || "")
                                     }
-                                    value={pointsOverride[s._id] || ""}
                                     onChange={(e) =>
                                       setPointsOverride((prev) => ({
                                         ...prev,
@@ -1853,17 +2013,122 @@ export default function Assignments({
                           </div>
                         )}
                       </div>
+                      {isAdmin && w.githubUrl && w.status === "pending" && (
+                        <div style={{ marginTop: "6px" }}>
+                          <button
+                            type="button"
+                            onClick={() => getWorkAiReview(w)}
+                            disabled={workAiLoading[w._id]}
+                            style={{
+                              padding: "4px 10px",
+                              borderRadius: "7px",
+                              border: "1px solid var(--color-accent-border)",
+                              background: "var(--color-accent-muted)",
+                              color: "var(--color-accent)",
+                              cursor: "pointer",
+                              fontSize: "12px",
+                              fontFamily: "'DM Sans', sans-serif",
+                            }}
+                          >
+                            {workAiLoading[w._id]
+                              ? "Analyzing..."
+                              : "✨ AI Review"}
+                          </button>
+
+                          {workAiReview[w._id] &&
+                            !workAiReview[w._id].error && (
+                              <div
+                                style={{
+                                  marginTop: "8px",
+                                  padding: "10px 12px",
+                                  borderRadius: "10px",
+                                  background: "var(--color-accent-muted)",
+                                  border:
+                                    "1px solid var(--color-accent-border)",
+                                  fontSize: "13px",
+                                  display: "flex",
+                                  flexDirection: "column",
+                                  gap: "6px",
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    fontWeight: 600,
+                                    color: "var(--color-accent)",
+                                  }}
+                                >
+                                  ✨ AI suggests:{" "}
+                                  {workAiReview[w._id].suggestedPoints} /{" "}
+                                  {w.requestedPoints || 10} pts
+                                </div>
+                                <div
+                                  style={{
+                                    color: "var(--color-text-primary)",
+                                    lineHeight: 1.5,
+                                  }}
+                                >
+                                  {workAiReview[w._id].summary}
+                                </div>
+                                {workAiReview[w._id].positive && (
+                                  <div
+                                    style={{
+                                      color: "#22c55e",
+                                      fontSize: "12px",
+                                    }}
+                                  >
+                                    ✓ {workAiReview[w._id].positive}
+                                  </div>
+                                )}
+                                {workAiReview[w._id].suggestion && (
+                                  <div
+                                    style={{
+                                      color: "var(--color-text-muted)",
+                                      fontSize: "12px",
+                                    }}
+                                  >
+                                    💡 {workAiReview[w._id].suggestion}
+                                  </div>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setWorkPointsOverride((prev) => ({
+                                      ...prev,
+                                      [w._id]: String(
+                                        workAiReview[w._id].suggestedPoints,
+                                      ),
+                                    }))
+                                  }
+                                  style={{
+                                    alignSelf: "flex-start",
+                                    padding: "3px 8px",
+                                    borderRadius: "6px",
+                                    border:
+                                      "1px solid var(--color-accent-border)",
+                                    background: "white",
+                                    color: "var(--color-accent)",
+                                    cursor: "pointer",
+                                    fontSize: "12px",
+                                    fontFamily: "'DM Sans', sans-serif",
+                                  }}
+                                >
+                                  Use suggested points
+                                </button>
+                              </div>
+                            )}
+                        </div>
+                      )}
+
                       {isAdmin && w.status === "pending" ? (
                         <div className="work-card-actions">
                           <input
                             type="number"
                             className="points-override-input"
+                            placeholder="10"
                             value={
                               workPointsOverride[w._id] ??
-                              w.requestedPoints ??
-                              ""
+                              (w.requestedPoints || "")
                             }
-                            placeholder={"10"}
                             onChange={(e) =>
                               setWorkPointsOverride((prev) => ({
                                 ...prev,
