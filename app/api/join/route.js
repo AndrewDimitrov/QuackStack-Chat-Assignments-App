@@ -13,33 +13,39 @@ export async function POST(request) {
   const { inviteCode } = await request.json();
   await connectDB();
 
+  const user = await User.findById(session.user.id);
+
+  if (!user) {
+    return Response.json({ error: "User not found" }, { status: 404 });
+  }
+
   const group = await Group.findOne({ inviteCode }).populate(
     "members.user",
-    "_id role",
+    "_id",
   );
   if (!group)
     return Response.json({ error: "Invalid invite code" }, { status: 404 });
 
-  const alreadyMember = group.members.find(
-    (m) => m.user._id.toString() === session.user.id,
+  const alreadyMember = group.members.some(
+    (m) => m.user?._id?.toString() === session.user.id,
   );
   if (alreadyMember) return Response.json({ group }, { status: 200 });
 
-  group.members.push({ user: session.user.id, role: "member" });
-  await group.save();
+  await Group.findByIdAndUpdate(group._id, {
+    $addToSet: { members: { user: user._id, role: "member" } },
+  });
 
   await pusherServer.trigger(`sidebar-${session.user.id}`, "update", {
     link: `/dashboard/groups/${group._id}`,
   });
 
-  const newUser = await User.findById(session.user.id);
   const admins = group.members.filter((m) => m.role === "admin");
   for (const admin of admins) {
     await createNotification({
       userId: admin.user._id,
       type: "join",
-      title: group.name,
-      body: `${newUser.name} joined the group`,
+      title: `New member in ${group.name}`,
+      body: `${user.name} joined the group`,
       link: `/dashboard/groups/${group._id}`,
     });
   }

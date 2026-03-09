@@ -41,9 +41,6 @@ export async function GET() {
         read: false,
       });
 
-      console.log("unread for", other._id.toString(), ":", unread);
-      console.log("looking for link containing:", other._id.toString());
-
       conversations.push({
         userId: other._id,
         name: other.name,

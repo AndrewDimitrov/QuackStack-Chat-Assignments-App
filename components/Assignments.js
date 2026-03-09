@@ -56,6 +56,8 @@ export default function Assignments({
   const [workExternalUrl, setWorkExternalUrl] = useState("");
   const [workRequestedPoints, setWorkRequestedPoints] = useState("");
 
+  const [confirmDelete, setConfirmDelete] = useState(null);
+
   const loadAssignments = useCallback(async () => {
     setLoading(true);
     const res = await fetch(`/api/groups/${groupId}/assignments`);
@@ -159,6 +161,16 @@ export default function Assignments({
     setNote("");
     setSubmitting(false);
     loadSubmissions(selected._id);
+  }
+
+  async function deleteAssignment(assignmentId) {
+    await fetch(`/api/groups/${groupId}/assignments`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ assignmentId }),
+    });
+    setAssignments((prev) => prev.filter((a) => a._id !== assignmentId));
+    if (selected?._id === assignmentId) setSelected(null);
   }
 
   async function reviewSubmission(submissionId, status, customPoints) {
@@ -451,6 +463,7 @@ export default function Assignments({
           transition: all 0.15s;
           border: 1px solid transparent;
           margin-bottom: 4px;
+          position: relative;
         }
         .asgn-item:hover { background: var(--color-bg); }
         .asgn-item.active {
@@ -1140,6 +1153,98 @@ export default function Assignments({
                             <span className="asgn-points">
                               ⭐ {a.points} pts
                             </span>
+
+                            {isAdmin && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setConfirmDelete(a._id);
+                                  }}
+                                  style={{
+                                    marginLeft: "auto",
+                                    padding: "2px 8px",
+                                    border: "1px solid var(--color-error-bg)",
+                                    borderRadius: "6px",
+                                    background: "var(--color-error-bg)",
+                                    color: "var(--color-error)",
+                                    cursor: "pointer",
+                                    fontSize: "11px",
+                                    fontFamily: "'DM Sans', sans-serif",
+                                    flexShrink: 0,
+                                  }}
+                                >
+                                  Delete
+                                </button>
+                                {confirmDelete === a._id && (
+                                  <div
+                                    onClick={(e) => e.stopPropagation()}
+                                    style={{
+                                      position: "absolute",
+                                      right: "8px",
+                                      top: "50%",
+                                      transform: "translateY(-50%)",
+                                      background: "white",
+                                      border: "1px solid var(--color-border)",
+                                      borderRadius: "10px",
+                                      boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
+                                      padding: "12px",
+                                      zIndex: 100,
+                                      display: "flex",
+                                      flexDirection: "column",
+                                      gap: "8px",
+                                      minWidth: "160px",
+                                    }}
+                                  >
+                                    <div
+                                      style={{
+                                        fontSize: "13px",
+                                        fontWeight: 600,
+                                        color: "var(--color-text-primary)",
+                                      }}
+                                    >
+                                      Delete assignment?
+                                    </div>
+                                    <div
+                                      style={{
+                                        fontSize: "12px",
+                                        color: "var(--color-text-muted)",
+                                      }}
+                                    >
+                                      This cannot be undone.
+                                    </div>
+                                    <div
+                                      style={{ display: "flex", gap: "6px" }}
+                                    >
+                                      <button
+                                        type="button"
+                                        className="review-btn review-reject"
+                                        onClick={() => {
+                                          deleteAssignment(a._id);
+                                          setConfirmDelete(null);
+                                        }}
+                                      >
+                                        Delete
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className="review-btn"
+                                        onClick={() => setConfirmDelete(null)}
+                                        style={{
+                                          border:
+                                            "1px solid var(--color-border)",
+                                          background: "white",
+                                          color: "var(--color-text-primary)",
+                                        }}
+                                      >
+                                        Cancel
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+                              </>
+                            )}
                             {a.dueDate && (
                               <span
                                 className={`asgn-due ${isOverdue(a.dueDate) ? "overdue" : ""}`}

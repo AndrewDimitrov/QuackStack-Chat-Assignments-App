@@ -70,3 +70,28 @@ export async function POST(request, { params }) {
 
   return Response.json({ assignment });
 }
+
+export async function DELETE(request, { params }) {
+  const session = await auth();
+  if (!session)
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { id } = await params;
+  const { assignmentId } = await request.json();
+
+  await connectDB();
+
+  const group = await Group.findById(id).populate("members.user", "_id");
+  const member = group.members.find(
+    (m) => m.user._id.toString() === session.user.id,
+  );
+  if (!member || member.role !== "admin")
+    return Response.json(
+      { error: "Only admins can delete assignments" },
+      { status: 403 },
+    );
+
+  await Assignment.findByIdAndDelete(assignmentId);
+
+  return Response.json({ success: true });
+}

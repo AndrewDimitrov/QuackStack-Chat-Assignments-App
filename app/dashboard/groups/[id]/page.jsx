@@ -13,6 +13,7 @@ import { useActiveChat } from "@/app/providers";
 import MembersPanel from "@/components/MembersPanel";
 import Leaderboard from "@/components/Leaderboard";
 import MessageContextMenu from "@/components/MessageContextMenu";
+import CreateGroupModal from "@/components/CreateGroupModal";
 
 export default function GroupPage() {
   const { id } = useParams();
@@ -49,6 +50,8 @@ export default function GroupPage() {
   const [editingMsg, setEditingMsg] = useState(null);
   const [editContent, setEditContent] = useState("");
   const [contextMenu, setContextMenu] = useState(null);
+
+  const [showEditModal, setShowEditModal] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -185,6 +188,11 @@ export default function GroupPage() {
     }
 
     setInput("");
+
+    if (inputRef.current) {
+      inputRef.current.style.height = "42px";
+    }
+
     setImageFile(null);
     setImagePreview(null);
     setSending(false);
@@ -476,7 +484,7 @@ export default function GroupPage() {
           border-radius: 50%;
           overflow: hidden;
           flex-shrink: 0;
-          margin-top: 2px;
+          margin-top: 4px;
           background: var(--color-accent-muted);
           border: 1px solid var(--color-border);
           display: flex;
@@ -544,7 +552,7 @@ export default function GroupPage() {
           display: flex;
           align-items: center;
           gap: 10px;
-          padding: 10px 14px;
+          padding: 4px 14px;
           background: var(--color-bg);
           border: 1px solid var(--color-border);
           border-radius: 14px;
@@ -607,16 +615,16 @@ export default function GroupPage() {
           flex: 1;
           border: none;
           background: transparent;
-          font-size: 14px;
+          font-size: 15px;
           font-family: 'DM Sans', sans-serif;
           color: var(--color-text-primary);
           outline: none;
           resize: none;
-          min-height: 24px;
           max-height: 120px;
           line-height: 1.5;
-          padding: 0;
           overflow-y: auto;
+          padding: 10px 0;
+          box-sizing: border-box;
         }
 
         .cancelHover:hover {
@@ -664,8 +672,20 @@ export default function GroupPage() {
         <ChatHeader
           group={group}
           onlineCount={onlineCount}
-          onMembersClick={() => setShowMembers((v) => !v)}
+          onMembersClick={() => setShowMembers(true)}
+          onEditClick={() => setShowEditModal(true)}
+          isAdmin={isAdmin}
         />
+        {showEditModal && (
+          <CreateGroupModal
+            editGroup={group}
+            onClose={(updatedGroup) => {
+              setShowEditModal(false);
+              if (updatedGroup && updatedGroup._id) setGroup(updatedGroup);
+            }}
+          />
+        )}
+
         <TabBar
           activeTab={activeTab}
           onTabChange={setActiveTab}
@@ -732,30 +752,39 @@ export default function GroupPage() {
                       className={`msg-row ${isOwn ? "own" : ""}`}
                       onContextMenu={(e) => handleRightClick(e, msg, isOwn)}
                     >
-                      <UserHoverCard user={isOwn ? null : msg.sender}>
-                        <div className="msg-avatar">
-                          {msg.sender?.avatar ? (
-                            <Image
-                              src={msg.sender.avatar}
-                              alt={msg.sender.name}
-                              width={32}
-                              height={32}
-                              style={{ objectFit: "cover" }}
-                            />
-                          ) : (
-                            msg.sender?.name?.[0]
-                          )}
-                        </div>
-                      </UserHoverCard>
+                      {!isOwn && (
+                        <UserHoverCard user={msg.sender}>
+                          <div className="msg-avatar">
+                            {msg.sender?.avatar ? (
+                              <Image
+                                src={msg.sender.avatar}
+                                alt={msg.sender.name}
+                                width={32}
+                                height={32}
+                                style={{ objectFit: "cover" }}
+                              />
+                            ) : (
+                              msg.sender?.name?.[0]
+                            )}
+                          </div>
+                        </UserHoverCard>
+                      )}
                       <div className="msg-body">
-                        <div className="msg-meta">
-                          <span className="msg-name">
-                            {isOwn ? "You" : msg.sender?.name}
-                          </span>
-                          <span className="msg-time">
-                            {formatTime(msg.createdAt)}
-                          </span>
-                        </div>
+                        {!isOwn && (
+                          <div className="msg-meta">
+                            <span className="msg-name">{msg.sender?.name}</span>
+                            <span className="msg-time">
+                              {formatTime(msg.createdAt)}
+                            </span>
+                          </div>
+                        )}
+                        {isOwn && (
+                          <div className="msg-meta flex-end">
+                            <span className="msg-time">
+                              {formatTime(msg.createdAt)}
+                            </span>
+                          </div>
+                        )}
                         <div
                           style={{
                             display: "flex",
@@ -764,50 +793,48 @@ export default function GroupPage() {
                             gap: "4px",
                           }}
                         >
-                          <>
-                            {msg.content && (
-                              <div
-                                className={`msg-bubble ${isOwn ? "flex-end" : ""}`}
-                              >
-                                {msg.content}
-                                {msg.edited && (
-                                  <span
-                                    style={{
-                                      fontSize: "10px",
-                                      opacity: 0.5,
-                                      marginLeft: "6px",
-                                    }}
-                                  >
-                                    (edited)
-                                  </span>
-                                )}
-                              </div>
-                            )}
-                            {msg.image && (
-                              <div
-                                className="msg-image-wrap"
-                                onClick={() => setLightboxImage(msg.image)}
-                              >
-                                <img
-                                  src={msg.image}
-                                  alt="image"
-                                  onLoad={() =>
-                                    bottomRef.current?.scrollIntoView({
-                                      behavior: "smooth",
-                                    })
-                                  }
+                          {msg.content && (
+                            <div
+                              className={`msg-bubble ${isOwn ? "flex-end" : ""}`}
+                            >
+                              {msg.content}
+                              {msg.edited && (
+                                <span
                                   style={{
-                                    borderRadius: "12px",
-                                    maxWidth: "300px",
-                                    width: "100%",
-                                    height: "auto",
-                                    display: "block",
-                                    cursor: "pointer",
+                                    fontSize: "10px",
+                                    opacity: 0.5,
+                                    marginLeft: "6px",
                                   }}
-                                />
-                              </div>
-                            )}
-                          </>
+                                >
+                                  (edited)
+                                </span>
+                              )}
+                            </div>
+                          )}
+                          {msg.image && (
+                            <div
+                              className="msg-image-wrap"
+                              onClick={() => setLightboxImage(msg.image)}
+                            >
+                              <img
+                                src={msg.image}
+                                alt="image"
+                                onLoad={() =>
+                                  bottomRef.current?.scrollIntoView({
+                                    behavior: "smooth",
+                                  })
+                                }
+                                style={{
+                                  borderRadius: "12px",
+                                  maxWidth: "300px",
+                                  width: "100%",
+                                  height: "auto",
+                                  display: "block",
+                                  cursor: "pointer",
+                                }}
+                              />
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -934,12 +961,12 @@ export default function GroupPage() {
                   value={input}
                   onChange={(e) => {
                     setInput(e.target.value);
-                    e.target.style.height = "auto";
+                    e.target.style.height = "42px"; // reset to min, not "auto"
                     e.target.style.height =
                       Math.min(e.target.scrollHeight, 120) + "px";
                   }}
                   onKeyDown={handleKeyDown}
-                  style={{ height: "24px" }}
+                  style={{ height: "42px" }}
                 />
                 <button
                   className="chat-send-btn"

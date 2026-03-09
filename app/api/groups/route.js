@@ -47,7 +47,7 @@ export async function POST(request) {
   const group = await Group.create({
     name,
     description,
-    icon: icon || null, // ← добави
+    icon: icon || null,
     createdBy: session.user.id,
     members: [{ user: user._id, role: "admin" }],
   });

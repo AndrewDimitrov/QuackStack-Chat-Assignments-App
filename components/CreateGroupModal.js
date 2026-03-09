@@ -1,15 +1,16 @@
 "use client";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 
-export default function CreateGroupModal({ onClose }) {
+export default function CreateGroupModal({ onClose, editGroup = null }) {
   const router = useRouter();
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
+  const isEdit = !!editGroup;
+  const [name, setName] = useState(editGroup?.name || "");
+  const [description, setDescription] = useState(editGroup?.description || "");
   const [logo, setLogo] = useState(null);
-  const [logoPreview, setLogoPreview] = useState(null);
-  const [creating, setCreating] = useState(false);
+  const [logoPreview, setLogoPreview] = useState(editGroup?.icon || null);
+  const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
   const fileRef = useRef(null);
@@ -23,12 +24,11 @@ export default function CreateGroupModal({ onClose }) {
 
   async function handleSubmit() {
     if (!name.trim()) return;
-    setCreating(true);
+    setSaving(true);
     setError("");
 
-    let iconUrl = null;
+    let iconUrl = editGroup?.icon || null;
 
-    // Upload logo if selected
     if (logo) {
       setUploading(true);
       const formData = new FormData();
@@ -40,12 +40,33 @@ export default function CreateGroupModal({ onClose }) {
       const uploadData = await uploadRes.json();
       if (!uploadRes.ok) {
         setError("Failed to upload logo");
-        setCreating(false);
+        setSaving(false);
         setUploading(false);
         return;
       }
       iconUrl = uploadData.url;
       setUploading(false);
+    }
+
+    if (isEdit) {
+      const res = await fetch(`/api/groups/${editGroup._id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: name.trim(),
+          description: description.trim(),
+          icon: iconUrl,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Failed to update group");
+        setSaving(false);
+        return;
+      }
+      setSaving(false);
+      onClose(data.group);
+      return;
     }
 
     const res = await fetch("/api/groups", {
@@ -58,14 +79,12 @@ export default function CreateGroupModal({ onClose }) {
       }),
     });
     const data = await res.json();
-
     if (!res.ok) {
       setError(data.error || "Failed to create group");
-      setCreating(false);
+      setSaving(false);
       return;
     }
-
-    setCreating(false);
+    setSaving(false);
     onClose();
     router.push(`/dashboard/groups/${data.group._id}`);
   }
@@ -299,8 +318,14 @@ export default function CreateGroupModal({ onClose }) {
       >
         <div className="modal-card">
           <div className="modal-head">
-            <span className="modal-title">Create a group</span>
-            <button type="button" className="modal-close" onClick={onClose}>
+            <span className="modal-title">
+              {isEdit ? "Edit group" : "Create a group"}
+            </span>
+            <button
+              type="button"
+              className="modal-close"
+              onClick={() => onClose()}
+            >
               <svg
                 width="14"
                 height="14"
@@ -314,9 +339,7 @@ export default function CreateGroupModal({ onClose }) {
               </svg>
             </button>
           </div>
-
           <div className="modal-body">
-            {/* Logo upload */}
             <div className="logo-upload">
               <div
                 className="logo-preview"
@@ -357,8 +380,6 @@ export default function CreateGroupModal({ onClose }) {
                 onChange={handleLogoChange}
               />
             </div>
-
-            {/* Name */}
             <div className="modal-field">
               <label className="modal-label">Group name *</label>
               <input
@@ -370,8 +391,6 @@ export default function CreateGroupModal({ onClose }) {
                 onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
               />
             </div>
-
-            {/* Description */}
             <div className="modal-field">
               <label className="modal-label">Description</label>
               <textarea
@@ -381,9 +400,7 @@ export default function CreateGroupModal({ onClose }) {
                 onChange={(e) => setDescription(e.target.value)}
               />
             </div>
-
             {error && <div className="modal-error">{error}</div>}
-
             <div className="modal-footer">
               <button
                 type="button"
@@ -396,13 +413,15 @@ export default function CreateGroupModal({ onClose }) {
                 type="button"
                 className="modal-btn-create"
                 onClick={handleSubmit}
-                disabled={creating || uploading || !name.trim()}
+                disabled={saving || uploading || !name.trim()}
               >
                 {uploading
                   ? "Uploading..."
-                  : creating
-                    ? "Creating..."
-                    : "Create group"}
+                  : saving
+                    ? "Saving..."
+                    : isEdit
+                      ? "Save changes"
+                      : "Create group"}
               </button>
             </div>
           </div>

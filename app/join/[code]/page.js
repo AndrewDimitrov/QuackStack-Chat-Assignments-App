@@ -19,7 +19,14 @@ export default function JoinPage() {
     }
     if (status !== "authenticated" || !code) return;
 
-    fetch("/api/groups/join", {
+    const pending = localStorage.getItem("pendingInviteCode");
+    if (pending === code) {
+      localStorage.removeItem("pendingInviteCode");
+    }
+
+    setState("joining");
+
+    fetch("/api/join", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ inviteCode: code }),
@@ -35,22 +42,6 @@ export default function JoinPage() {
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, code]);
-
-  async function join() {
-    setState("joining");
-    const res = await fetch("/api/groups/join", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ inviteCode: code }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      setState("error");
-      setMessage(data.error || "Invalid invite link");
-      return;
-    }
-    router.push(`/dashboard/groups/${data.group._id}`);
-  }
 
   return (
     <div

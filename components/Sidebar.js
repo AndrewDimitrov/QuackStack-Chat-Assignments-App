@@ -25,8 +25,6 @@ export default function Sidebar({ onClose }) {
   const [refreshing, setRefreshing] = useState(false);
 
   const loadData = useCallback(async () => {
-    console.log("loadData called", new Error().stack);
-
     const [groupsRes, dmsRes] = await Promise.all([
       fetch("/api/groups"),
       fetch("/api/dm/conversations"),
@@ -47,12 +45,9 @@ export default function Sidebar({ onClose }) {
 
     const channel = pusherClient.subscribe(`sidebar-${session.user.id}`);
     channel.bind("update", (data) => {
-      console.log("sidebar update received:", data);
       const baseLink = data?.link?.split("?")[0];
       const baseActiveChat = activeChatRef.current?.split("?")[0];
-      console.log("baseLink:", baseLink, "baseActiveChat:", baseActiveChat);
       if (baseActiveChat && baseLink && baseActiveChat === baseLink) {
-        console.log("SKIPPED");
         setDms((prev) =>
           prev.map((dm) =>
             `/dashboard/dm/${dm.userId}` === baseLink
@@ -69,7 +64,6 @@ export default function Sidebar({ onClose }) {
         );
         return;
       }
-      console.log("LOADING DATA");
       loadData();
     });
 

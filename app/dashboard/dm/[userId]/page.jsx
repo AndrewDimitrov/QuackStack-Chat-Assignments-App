@@ -43,6 +43,14 @@ export default function DMPage() {
   }, [userId]);
 
   useEffect(() => {
+    if (inputRef.current) {
+      inputRef.current.style.height = "42px";
+      inputRef.current.style.height =
+        Math.min(inputRef.current.scrollHeight, 120) + "px";
+    }
+  }, []);
+
+  useEffect(() => {
     if (!session?.user?.id) return;
 
     async function load() {
@@ -152,6 +160,11 @@ export default function DMPage() {
     });
 
     setInput("");
+
+    if (inputRef.current) {
+      inputRef.current.style.height = "42px";
+    }
+
     setImageFile(null);
     setImagePreview(null);
     setSending(false);
@@ -351,7 +364,7 @@ export default function DMPage() {
           border-radius: 50%;
           overflow: hidden;
           flex-shrink: 0;
-          margin-top: 2px;
+          margin-top: 4px;
           background: var(--color-accent-muted);
           border: 1px solid var(--color-border);
           display: flex;
@@ -423,7 +436,7 @@ export default function DMPage() {
           display: flex;
           align-items: center;
           gap: 10px;
-          padding: 10px 14px;
+          padding: 4px 14px;
           background: var(--color-bg);
           border: 1px solid var(--color-border);
           border-radius: 14px;
@@ -492,7 +505,10 @@ export default function DMPage() {
           resize: none;
           max-height: 120px;
           line-height: 1.5;
-          padding: 0;
+          overflow-y: auto;
+
+          padding: 10px 0;
+          box-sizing: border-box;
         }
         .chat-textarea::placeholder { color: var(--color-text-muted); }
 
@@ -613,21 +629,23 @@ export default function DMPage() {
                   setContextMenu({ x: e.clientX, y: e.clientY, msg, isOwn });
                 }}
               >
-                <UserHoverCard user={isOwn ? null : msg.sender}>
-                  <div className="msg-avatar">
-                    {msg.sender?.avatar ? (
-                      <Image
-                        src={msg.sender.avatar}
-                        alt={msg.sender.name}
-                        width={32}
-                        height={32}
-                        style={{ objectFit: "cover" }}
-                      />
-                    ) : (
-                      msg.sender?.name?.[0]
-                    )}
-                  </div>
-                </UserHoverCard>
+                {!isOwn && (
+                  <UserHoverCard user={msg.sender}>
+                    <div className="msg-avatar">
+                      {msg.sender?.avatar ? (
+                        <Image
+                          src={msg.sender.avatar}
+                          alt={msg.sender.name}
+                          width={32}
+                          height={32}
+                          style={{ objectFit: "cover" }}
+                        />
+                      ) : (
+                        msg.sender?.name?.[0]
+                      )}
+                    </div>
+                  </UserHoverCard>
+                )}
                 <div
                   style={{
                     display: "flex",
@@ -635,14 +653,21 @@ export default function DMPage() {
                     alignItems: "flex-start",
                   }}
                 >
-                  <div className={`msg-meta ${isOwn ? "flex-end" : ""}`}>
-                    <span className="msg-name">
-                      {isOwn ? "You" : msg.sender?.name}
-                    </span>
-                    <span className="msg-time">
-                      {formatTime(msg.createdAt)}
-                    </span>
-                  </div>
+                  {!isOwn && (
+                    <div className="msg-meta">
+                      <span className="msg-name">{msg.sender?.name}</span>
+                      <span className="msg-time">
+                        {formatTime(msg.createdAt)}
+                      </span>
+                    </div>
+                  )}
+                  {isOwn && (
+                    <div className="msg-meta flex-end">
+                      <span className="msg-time">
+                        {formatTime(msg.createdAt)}
+                      </span>
+                    </div>
+                  )}
                   {msg.content && (
                     <div className={`msg-bubble ${isOwn ? "flex-end" : ""}`}>
                       {msg.content}
@@ -696,10 +721,10 @@ export default function DMPage() {
             <MessageContextMenu
               x={contextMenu.x}
               y={contextMenu.y}
-              canEdit={!!contextMenu.msg.content}
+              canEdit={!!contextMenu.msg.a}
               onEdit={() => {
                 setEditingMsg(contextMenu.msg._id);
-                setInput(contextMenu.msg.content);
+                setInput(contextMenu.msg.a);
                 inputRef.current?.focus();
               }}
               onDelete={() => deleteMessage(contextMenu.msg._id)}
@@ -797,9 +822,14 @@ export default function DMPage() {
               className="chat-textarea"
               placeholder={`Message ${otherUser?.name || ""}...`}
               value={input}
-              onChange={(e) => setInput(e.target.value)}
+              onChange={(e) => {
+                setInput(e.target.value);
+                e.target.style.height = "42px";
+                e.target.style.height =
+                  Math.min(e.target.scrollHeight, 120) + "px";
+              }}
               onKeyDown={handleKeyDown}
-              rows={1}
+              style={{ height: "42px" }}
             />
             <button
               className="chat-send-btn"

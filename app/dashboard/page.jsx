@@ -10,7 +10,7 @@ export default function DashboardPage() {
       const pendingCode = localStorage.getItem("pendingInviteCode");
       if (pendingCode) {
         localStorage.removeItem("pendingInviteCode");
-        fetch("/api/groups/join", {
+        fetch("/api/join", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ inviteCode: pendingCode }),
