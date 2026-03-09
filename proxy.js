@@ -1,6 +1,12 @@
-import { auth } from "@/auth";
+import NextAuth from "next-auth";
+import authConfig from "@/auth.config";
+
+const { auth } = NextAuth(authConfig);
+
 export default auth;
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/groups/:path*", "/profile/:path*"],
+  matcher: [
+    "/((?!_next|favicon|manifest.json|sw.js|swe-worker|workbox-|api/auth|login|$|\\.well-known).*)",
+  ],
 };
