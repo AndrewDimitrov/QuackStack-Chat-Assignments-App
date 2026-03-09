@@ -5,24 +5,6 @@ import { useEffect } from "react";
 export default function DashboardPage() {
   const { data: session } = useSession();
 
-  useEffect(() => {
-    if (session?.user?.id) {
-      const pendingCode = localStorage.getItem("pendingInviteCode");
-      if (pendingCode) {
-        localStorage.removeItem("pendingInviteCode");
-        fetch("/api/join", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ inviteCode: pendingCode }),
-        })
-          .then((res) => res.json())
-          .then((data) => {
-            if (data.group) router.push(`/dashboard/groups/${data.group._id}`);
-          });
-      }
-    }
-  }, [session?.user?.id]);
-
   return (
     <>
       <style>{`

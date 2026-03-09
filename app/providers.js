@@ -12,7 +12,7 @@ export default function Providers({ children }) {
   const [activeChat, setActiveChat] = useState(null);
 
   return (
-    <SessionProvider>
+    <SessionProvider refetchInterval={0} refetchOnWindowFocus={false}>
       <ActiveChatContext.Provider value={{ activeChat, setActiveChat }}>
         {children}
       </ActiveChatContext.Provider>

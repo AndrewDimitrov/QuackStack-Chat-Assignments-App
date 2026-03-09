@@ -13,16 +13,10 @@ export default function JoinPage() {
 
   useEffect(() => {
     if (status === "unauthenticated") {
-      localStorage.setItem("pendingInviteCode", code);
-      router.push("/login");
+      router.push(`/login?callbackUrl=/join/${code}`);
       return;
     }
     if (status !== "authenticated" || !code) return;
-
-    const pending = localStorage.getItem("pendingInviteCode");
-    if (pending === code) {
-      localStorage.removeItem("pendingInviteCode");
-    }
 
     setState("joining");
 
